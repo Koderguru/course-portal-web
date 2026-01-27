@@ -72,7 +72,7 @@ export default function CourseView({ content }: CourseViewProps) {
 
         <div className="flex-1 flex lg:overflow-hidden relative">
             {/* Left/Main Column: Video Player */}
-            <main className="flex-1 flex flex-col bg-black relative z-10 w-full">
+            <main className={cn("flex-1 flex flex-col bg-black relative z-10 w-full transition-all duration-300", mobileMenuOpen ? "hidden lg:flex" : "flex")}>
                 {activeLesson ? (
                     <div className="flex flex-col h-full">
                          <div className="relative flex-grow bg-black flex items-center justify-center">
@@ -113,7 +113,7 @@ export default function CourseView({ content }: CourseViewProps) {
             {/* Right/Sidebar Column: Content List */}
             <aside 
                 className={cn(
-                    "absolute inset-y-0 right-0 w-80 lg:w-96 bg-zinc-900 border-l border-zinc-800 flex flex-col transform transition-transform duration-300 z-20 lg:relative lg:transform-none lg:flex h-full",
+                    "absolute inset-y-0 right-0 w-full sm:w-80 lg:w-96 bg-zinc-900 border-l border-zinc-800 flex flex-col transform transition-transform duration-300 z-20 lg:relative lg:transform-none lg:flex h-full",
                     mobileMenuOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
                 )}
             >
@@ -192,7 +192,7 @@ export default function CourseView({ content }: CourseViewProps) {
             {/* Mobile Overlay */}
             {mobileMenuOpen && (
                 <div 
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-10 lg:hidden"
+                    className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 lg:hidden"
                     onClick={() => setMobileMenuOpen(false)}
                 />
             )}
