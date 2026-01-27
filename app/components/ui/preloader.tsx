@@ -26,7 +26,10 @@ const languages = [
   { text: "Developer",        color: "#ffffff" }, // Final
 ];
 
+let hasShownSession = false;
+
 export const Preloader = () => {
+  const [shouldRender] = useState(!hasShownSession);
   const [index, setIndex] = useState(0);
   const [dimension, setDimension] = useState({ width: 0, height: 0 });
   const [show, setShow] = useState(true);
@@ -36,6 +39,11 @@ export const Preloader = () => {
   }, []);
 
   useEffect(() => {
+    if (!shouldRender) return;
+
+    // Mark as shown for this session
+    hasShownSession = true;
+
     if (index === languages.length - 1) {
         // End of sequence
         setTimeout(() => {
@@ -49,7 +57,9 @@ export const Preloader = () => {
     }, index === 0 ? 2000 : 120); // Hold 'Apna Coder' longer (2s), then very fast (120ms) through others
 
     return () => clearTimeout(timeout);
-  }, [index]);
+  }, [index, shouldRender]);
+  
+  if (!shouldRender) return null;
 
   const initialPath = `M0 0 L${dimension.width} 0 L${dimension.width} ${dimension.height} Q${dimension.width / 2} ${dimension.height + 300} 0 ${dimension.height}  L0 0`;
   const targetPath = `M0 0 L${dimension.width} 0 L${dimension.width} 0 Q${dimension.width / 2} 0 0 0 L0 0`;
