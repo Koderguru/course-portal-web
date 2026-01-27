@@ -92,19 +92,28 @@ export default function SecretChatPage() {
         e.preventDefault();
         if (!newMessage.trim() || !senderId) return;
 
-        try {
-            const { error } = await supabase
-                .from('secret_chat_messages')
-                .insert({
-                    text: newMessage,
-                    sender_id: senderId
-                }); // created_at is automatic in Supabase if defined as DEFAULT now()
+        const payload = { text: newMessage, sender_id: senderId };
 
-            if (error) throw error;
-            setNewMessage('');
-        } catch (error: any) {
-            console.error("Error sending message: ", error);
-            alert(`Error sending message: ${error.message || 'Unknown error'}`);
+        // Try up to 2 times for transient network issues
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const { error } = await supabase.from('secret_chat_messages').insert(payload);
+                if (error) throw error;
+                setNewMessage('');
+                return;
+            } catch (err: any) {
+                console.error(`Send attempt ${attempt} failed:`, err);
+                // If it's a network-level failure (fetch), retry once after small delay
+                const isNetworkError = err?.message?.toLowerCase().includes('failed to fetch') || err?.name === 'TypeError';
+                if (attempt === 1 && isNetworkError) {
+                    await new Promise(res => setTimeout(res, 700));
+                    continue; // retry
+                }
+
+                // Otherwise show the real error to user
+                alert(`Error sending message: ${err?.message || JSON.stringify(err)}`);
+                return;
+            }
         }
     };
 
