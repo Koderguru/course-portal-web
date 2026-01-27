@@ -2,6 +2,7 @@ import { getCategories } from './lib/api';
 import { HoverEffect } from './components/ui/card-hover-effect';
 import { Preloader } from './components/ui/preloader';
 import { FloatingIcons } from './components/ui/floating-icons';
+import { SecretChat } from './components/SecretChat';
 import { BadgeCheck, BookOpen, Code, GraduationCap, Layout, Sparkles, Terminal, Cpu } from 'lucide-react';
 
 // Map icons and colors
@@ -37,6 +38,7 @@ export default async function Home() {
     <main className="h-screen w-full bg-gray-50 dark:bg-black font-sans selection:bg-indigo-500 selection:text-white overflow-hidden flex flex-col justify-center items-center relative">
       <Preloader />
       <FloatingIcons />
+      <SecretChat />
       
       {/* Background Grid - Absolute to not take space */}
       <div className="absolute inset-0 w-full h-full bg-grid-slate-100/50 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/20 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))] pointer-events-none z-0"></div>
