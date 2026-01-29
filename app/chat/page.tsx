@@ -119,8 +119,9 @@ export default function SecretChatPage() {
         };
     }, [isAuthenticated, senderId, roomId]);
 
-    const handleLoginSuccess = (userId: string) => {
+    const handleLoginSuccess = (userId: string, roomId: string) => {
         setSenderId(userId);
+        setRoomId(roomId);
         setIsAuthenticated(true);
     };
 

@@ -97,8 +97,9 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
     // Fullscreen Image View State
     const [viewImage, setViewImage] = useState<string | null>(null);
 
-    const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textAreaRef = useRef<HTMLTextAreaElement>(null); // Add this ref
+    const bottomRef = useRef<HTMLDivElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -835,6 +836,9 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                     <button 
                                         type="button" 
                                         onClick={() => {
+                                            if (!showEmoji) {
+                                                textAreaRef.current?.blur();
+                                            }
                                             setShowEmoji(!showEmoji);
                                             setShowGif(false);
                                         }} 
@@ -845,6 +849,9 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                     <button 
                                         type="button" 
                                         onClick={() => {
+                                            if (!showGif) {
+                                                textAreaRef.current?.blur();
+                                            }
                                             setShowGif(!showGif);
                                             setShowEmoji(false);
                                         }} 
@@ -855,6 +862,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                 </div>
 
                                 <textarea
+                                    ref={textAreaRef}
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     onFocus={() => {

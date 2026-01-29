@@ -26,7 +26,7 @@ export async function authenticate(password: string) {
             sameSite: 'strict',
             // No maxAge implies session cookie (deleted when browser closes)
         });
-        return { success: true, userId: data.passcode, label: data.label };
+        return { success: true, userId: data.passcode, label: data.label, roomId: data.room_id };
     }
     
     return { success: false, message: 'Invalid Passkey' };

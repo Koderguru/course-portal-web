@@ -6,7 +6,7 @@ import { Lock } from 'lucide-react';
 import { authenticate } from '../actions';
 
 interface LoginViewProps {
-    onLoginSuccess: (userId: string) => void;
+    onLoginSuccess: (userId: string, roomId: string) => void;
 }
 
 export const LoginView = ({ onLoginSuccess }: LoginViewProps) => {
@@ -18,10 +18,10 @@ export const LoginView = ({ onLoginSuccess }: LoginViewProps) => {
         setLoading(true);
         try {
             const result = await authenticate(password);
-            if (result.success && result.userId) {
+            if (result.success && result.userId && result.roomId) {
                 // Set session flag purely for client-side lifecycle management (tab close detection)
                 sessionStorage.setItem('chat_session_active', 'true');
-                onLoginSuccess(result.userId);
+                onLoginSuccess(result.userId, result.roomId);
             } else {
                 alert(result.message);
                 setPassword('');
