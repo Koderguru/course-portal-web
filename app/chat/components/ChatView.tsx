@@ -2,9 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, LogOut, Image as ImageIcon, Smile, X, Loader2, Mic, Square, Trash2, Pencil, Check, Palette, Camera, Plus, Video, Phone, ChevronLeft } from 'lucide-react';
+import { Send, LogOut, Image as ImageIcon, Smile, X, Loader2, Mic, Square, Trash2, Pencil, Check, Palette, Camera, Plus, Video, Phone, ChevronLeft, MoreVertical } from 'lucide-react';
 import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
-import { sendMessage, updateMessage } from '../actions';
+import { sendMessage, updateMessage, deleteMessageForEveryone, deleteMessageForMe, clearChat } from '../actions';
 import { supabase } from '@/app/lib/supabaseClient';
 
 const THEMES = {
@@ -50,15 +50,17 @@ interface Message {
     isUser: boolean;
     created_at: string;
     sender_id?: string;
+    is_deleted?: boolean;
 }
 
 interface ChatViewProps {
     messages: Message[];
     senderId: string;
     onLogout: () => void;
+    onMessageSent?: (msg: Message) => void;
 }
 
-export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
+export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatViewProps) => {
     // Theme State
     const [theme, setTheme] = useState<keyof typeof THEMES>('whatsapp_dark');
     const colors = THEMES[theme];
@@ -67,10 +69,15 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
     const [showEmoji, setShowEmoji] = useState(false);
     const [showAttachments, setShowAttachments] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [showMenu, setShowMenu] = useState(false); // Add this
+    const [clearingChat, setClearingChat] = useState(false); // Add this
     
     // Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editText, setEditText] = useState('');
+    
+    // Delete State
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     // Attachments State
     const [previewImage, setPreviewImage] = useState<{ file: File, url: string } | null>(null);
@@ -106,6 +113,23 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
 
     const handleEmojiClick = (emojiData: EmojiClickData) => {
         setNewMessage(prev => prev + emojiData.emoji);
+    };
+
+    const handleDeleteOption = async (option: 'everyone' | 'me') => {
+        if (!deletingId) return;
+        const id = deletingId;
+        setDeletingId(null);
+        
+        try {
+            if (option === 'everyone') {
+                await deleteMessageForEveryone(id);
+            } else {
+                await deleteMessageForMe(id);
+            }
+        } catch (error) {
+            console.error("Delete failed", error);
+            alert("Delete failed");
+        }
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,7 +268,20 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
                 audioUrl = data.publicUrl;
             }
 
-            await sendMessage(textToSend, imageUrl, audioUrl);
+            const response = await sendMessage(textToSend, imageUrl, audioUrl);
+            
+            if (response.success && response.data && onMessageSent) {
+                onMessageSent({
+                    id: response.data.id,
+                    text: response.data.text,
+                    image_url: response.data.image_url,
+                    audio_url: response.data.audio_url,
+                    isUser: true,
+                    created_at: response.data.created_at,
+                    sender_id: response.data.sender_id,
+                    is_deleted: response.data.is_deleted
+                });
+            }
 
         } catch (error: any) {
             console.error("Send Error:", error);
@@ -260,6 +297,21 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
         const currentIndex = themes.indexOf(theme);
         const nextIndex = (currentIndex + 1) % themes.length;
         setTheme(themes[nextIndex]);
+    };
+
+    const handleClearChat = async (option: 'everyone' | 'me') => {
+        setClearingChat(false);
+        try {
+            await clearChat(option);
+            // If clearing for me, we might optionally empty the local state immediately
+            // But Realtime updates might be slow to propagate "deleted_for" to *me* if I just sent it.
+            // So let's refresh page or manually filter.
+            // Actually, for "Clear Chat", reloading the window is often safest/easiest to ensure complex state is clean.
+            window.location.reload(); 
+        } catch (error) {
+            console.error("Clear chat failed", error);
+            alert("Failed to clear chat");
+        }
     };
 
     return (
@@ -301,14 +353,46 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
                         className={`${colors.icon}`}
                         title="Change Theme"
                     >
-                         <Palette size={20} />
+                         <Palette size={22} />
                      </button>
-                     <button 
-                        onClick={onLogout}
-                        className={`${colors.icon}`}
-                     >
-                         <LogOut size={20} />
-                     </button>
+                     
+                     <div className="relative">
+                        <button 
+                            onClick={() => setShowMenu(!showMenu)}
+                            className={`${colors.icon}`}
+                        >
+                            <MoreVertical size={22} />
+                        </button>
+                        
+                        <AnimatePresence>
+                        {showMenu && (
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95, y: -10 }} 
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                className={`absolute right-0 top-full mt-2 w-48 rounded-xl shadow-xl border overflow-hidden z-50 ${theme === 'whatsapp_light' ? 'bg-white border-gray-100' : 'bg-[#2a3942] border-[#2a3942]'}`}
+                            >
+                                <button 
+                                    onClick={() => {
+                                        setShowMenu(false);
+                                        setClearingChat(true);
+                                    }}
+                                    className={`w-full text-left px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-red-500`}
+                                >
+                                    Clear Chat
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        onLogout();
+                                    }}
+                                    className={`w-full text-left px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${theme === 'whatsapp_light' ? 'text-black' : 'text-white'}`}
+                                >
+                                    Log out
+                                </button>
+                            </motion.div>
+                        )}
+                        </AnimatePresence>
+                     </div>
                  </div>
             </header>
             
@@ -370,19 +454,28 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
 
                                     {msg.text && msg.text !== 'Image' && msg.text !== 'Audio Message' && (
                                         <div className={`relative inline-block text-left ${msg.image_url || msg.audio_url ? 'w-full px-1 pb-1' : ''}`}>
-                                            <span className="break-words whitespace-pre-wrap font-sans text-[16px] leading-[22px]">
+                                            <span className={`break-words whitespace-pre-wrap font-sans text-[16px] leading-[22px] ${msg.is_deleted ? 'italic opacity-60' : ''}`}>
                                                 {msg.text}
                                                 <span className="inline-block w-8 h-0"></span>
                                             </span>
                                             
                                             <span className={`float-right -mt-1.5 ml-1 flex items-center gap-0.5 select-none ${msg.image_url ? 'hidden' : ''} translate-y-1`}>
-                                                {msg.isUser && !msg.image_url && !msg.audio_url && (
+                                                {msg.isUser && !msg.image_url && !msg.audio_url && !msg.is_deleted && (
                                                     <button 
                                                         onClick={() => handleEditStart(msg)}
                                                         className={`opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/10 mr-0.5`}
                                                         title="Edit Message"
                                                     >
                                                         <Pencil size={10} />
+                                                    </button>
+                                                )}
+                                                {msg.isUser && !msg.is_deleted && (
+                                                    <button 
+                                                        onClick={() => setDeletingId(msg.id)}
+                                                        className={`opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/10 mr-0.5`}
+                                                        title="Delete Message"
+                                                    >
+                                                        <Trash2 size={10} />
                                                     </button>
                                                 )}
                                                 <span className={`text-[11px] font-normal ${colors.dateDetails}`}>
@@ -498,37 +591,117 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
                                     setShowAttachments(false);
                                     startRecording();
                                 }}
-                                className="flex flex-col items-center gap-1 group"
+                                className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white"
                             >
-                                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-gray-200 transition-colors">
-                                    <Mic size={24} />
-                                </div>
+                                <Mic />
                             </button>
-
-                            <button 
+                             <button
                                 onClick={() => {
-                                    setShowAttachments(false);
                                     fileInputRef.current?.click();
-                                }}
-                                className="flex flex-col items-center gap-1 group"
-                            >
-                                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-gray-200 transition-colors">
-                                    <ImageIcon size={24} />
-                                </div>
-                            </button>
-
-                            <button 
-                                onClick={() => {
                                     setShowAttachments(false);
-                                    setShowEmoji(true);
                                 }}
-                                className="flex flex-col items-center gap-1 group"
+                                className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white"
                             >
-                                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 group-hover:bg-gray-200 transition-colors">
-                                    <Smile size={24} />
-                                </div>
+                                <ImageIcon />
                             </button>
                         </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Delete Confirmation Modal */}
+                <AnimatePresence>
+                    {deletingId && (
+                        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-[2px]" onClick={() => setDeletingId(null)}>
+                            <motion.div 
+                                initial={{ opacity: 0, y: '100%' }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: '100%' }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`w-full sm:w-[320px] sm:rounded-2xl rounded-t-2xl p-4 shadow-2xl flex flex-col gap-2 ${theme === 'whatsapp_light' ? 'bg-white text-black' : 'bg-[#1f2c34] text-white'}`}
+                            >
+                                <div className="text-center mb-2 pt-2">
+                                     <p className={`text-sm font-medium ${theme === 'whatsapp_light' ? 'text-gray-500' : 'text-gray-400'}`}>Delete message?</p>
+                                </div>
+                                
+                                <button 
+                                    onClick={() => handleDeleteOption('everyone')}
+                                    className={`w-full py-3.5 px-4 rounded-xl font-medium text-red-500 flex items-center justify-center gap-2 active:scale-98 transition-transform ${
+                                         theme === 'whatsapp_light' ? 'bg-red-50 active:bg-red-100' : 'bg-red-500/10 active:bg-red-500/20'
+                                    }`}
+                                >
+                                    <Trash2 size={18} /> Delete for everyone
+                                </button>
+
+                                <button 
+                                    onClick={() => handleDeleteOption('me')}
+                                    className={`w-full py-3.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2 active:scale-98 transition-transform ${
+                                         theme === 'whatsapp_light' ? 'bg-gray-100 text-gray-900 active:bg-gray-200' : 'bg-[#2a3942] text-white active:bg-[#374248]'
+                                    }`}
+                                >
+                                    <Trash2 size={18} className="opacity-70" /> Delete for me
+                                </button>
+
+                                <button 
+                                    onClick={() => setDeletingId(null)}
+                                    className={`w-full py-3.5 rounded-xl font-semibold mt-1 active:scale-98 transition-transform ${
+                                        theme === 'whatsapp_light' ? 'bg-white text-blue-500 border border-gray-100 shadow-sm' : 'bg-transparent text-blue-400 border border-white/5'
+                                    }`}
+                                >
+                                    Cancel
+                                </button>
+                                <div className="h-4 sm:h-0"></div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* Clear Chat Confirmation Modal */}
+                <AnimatePresence>
+                    {clearingChat && (
+                        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-[2px]" onClick={() => setClearingChat(false)}>
+                            <motion.div 
+                                initial={{ opacity: 0, y: '100%' }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: '100%' }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`w-full sm:w-[320px] sm:rounded-2xl rounded-t-2xl p-4 shadow-2xl flex flex-col gap-2 ${theme === 'whatsapp_light' ? 'bg-white text-black' : 'bg-[#1f2c34] text-white'}`}
+                            >
+                                <div className="text-center mb-2 pt-2">
+                                     <h3 className="font-bold text-lg mb-1">Clear Chat?</h3>
+                                     <p className={`text-sm font-medium ${theme === 'whatsapp_light' ? 'text-gray-500' : 'text-gray-400'}`}>This action cannot be undone.</p>
+                                </div>
+                                
+                                <button 
+                                    onClick={() => handleClearChat('everyone')}
+                                    className={`w-full py-3.5 px-4 rounded-xl font-medium text-red-500 flex items-center justify-center gap-2 active:scale-98 transition-transform ${
+                                         theme === 'whatsapp_light' ? 'bg-red-50 active:bg-red-100' : 'bg-red-500/10 active:bg-red-500/20'
+                                    }`}
+                                >
+                                    <Trash2 size={18} /> Clear for everyone
+                                </button>
+
+                                <button 
+                                    onClick={() => handleClearChat('me')}
+                                    className={`w-full py-3.5 px-4 rounded-xl font-medium flex items-center justify-center gap-2 active:scale-98 transition-transform ${
+                                         theme === 'whatsapp_light' ? 'bg-gray-100 text-gray-900 active:bg-gray-200' : 'bg-[#2a3942] text-white active:bg-[#374248]'
+                                    }`}
+                                >
+                                    <Trash2 size={18} className="opacity-70" /> Clear for me
+                                </button>
+
+                                <button 
+                                    onClick={() => setClearingChat(false)}
+                                    className={`w-full py-3.5 rounded-xl font-semibold mt-1 active:scale-98 transition-transform ${
+                                        theme === 'whatsapp_light' ? 'bg-white text-blue-500 border border-gray-100 shadow-sm' : 'bg-transparent text-blue-400 border border-white/5'
+                                    }`}
+                                >
+                                    Cancel
+                                </button>
+                                <div className="h-4 sm:h-0"></div>
+                            </motion.div>
+                        </div>
                     )}
                 </AnimatePresence>
 

@@ -15,6 +15,7 @@ interface Message {
     isUser: boolean;
     created_at: string;
     sender_id?: string;
+    is_deleted?: boolean;
 }
 
 export default function SecretChatPage() {
@@ -27,11 +28,26 @@ export default function SecretChatPage() {
 
     // Check existing session on mount
     useEffect(() => {
+        // Enforce strict session policy: 
+        // If sessionStorage flag is missing (e.g. new tab, browser restart), force logout even if cookie exists.
+        const isSessionActive = sessionStorage.getItem('chat_session_active');
+
+        if (!isSessionActive) {
+            logout().then(() => {
+                 setLoading(false);
+                 setIsAuthenticated(false);
+            });
+            return;
+        }
+
         checkSession().then(session => {
             if (session.isAuthenticated && session.userId) {
                 setSenderId(session.userId);
                 setRoomId(session.roomId);
                 setIsAuthenticated(true);
+            } else {
+                // Cookie invalid or expired
+                sessionStorage.removeItem('chat_session_active');
             }
             setLoading(false);
         });
@@ -72,14 +88,27 @@ export default function SecretChatPage() {
                                 audio_url: newMsg.audio_url,
                                 isUser: newMsg.sender_id === senderId,
                                 created_at: newMsg.created_at,
-                                sender_id: newMsg.sender_id // Add missing sender_id
+                                sender_id: newMsg.sender_id,
+                                is_deleted: newMsg.is_deleted
                             } as Message;
                             return [...prev, messageElement];
                         });
                     } else if (payload.eventType === 'UPDATE') {
-                        setMessages(prev => prev.map(msg => 
-                            msg.id === newMsg.id ? { ...msg, text: newMsg.text } : msg
-                        ));
+                        // Check if deleted for me
+                        const deletedFor = newMsg.deleted_for || [];
+                        if (deletedFor.includes(senderId)) {
+                            setMessages(prev => prev.filter(m => m.id !== newMsg.id));
+                        } else {
+                            setMessages(prev => prev.map(msg => 
+                                msg.id === newMsg.id ? { 
+                                    ...msg, 
+                                    text: newMsg.text,
+                                    is_deleted: newMsg.is_deleted 
+                                } : msg
+                            ));
+                        }
+                    } else if (payload.eventType === 'DELETE') {
+                        setMessages(prev => prev.filter(m => m.id !== payload.old.id));
                     }
                 }
             )
@@ -96,10 +125,19 @@ export default function SecretChatPage() {
     };
 
     const handleLogout = async () => {
+        sessionStorage.removeItem('chat_session_active');
         await logout();
         setIsAuthenticated(false);
         setSenderId('');
-        router.push('/');
+        // Force refresh to clear any in-memory state properly
+        window.location.reload(); 
+    };
+
+    const handleMessageSent = (newMsg: Message) => {
+        setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+        });
     };
 
     if (loading) {
@@ -115,6 +153,7 @@ export default function SecretChatPage() {
                     messages={messages} 
                     senderId={senderId} 
                     onLogout={handleLogout} 
+                    onMessageSent={handleMessageSent}
                 />
             )}
         </div>

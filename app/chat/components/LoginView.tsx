@@ -19,6 +19,8 @@ export const LoginView = ({ onLoginSuccess }: LoginViewProps) => {
         try {
             const result = await authenticate(password);
             if (result.success && result.userId) {
+                // Set session flag purely for client-side lifecycle management (tab close detection)
+                sessionStorage.setItem('chat_session_active', 'true');
                 onLoginSuccess(result.userId);
             } else {
                 alert(result.message);

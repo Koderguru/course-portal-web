@@ -24,7 +24,7 @@ export async function authenticate(password: string) {
             httpOnly: true, 
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 60 * 60 * 24 // 24 hours
+            // No maxAge implies session cookie (deleted when browser closes)
         });
         return { success: true, userId: data.passcode, label: data.label };
     }
@@ -60,7 +60,7 @@ export async function sendMessage(text: string, imageUrl?: string, audioUrl?: st
         throw new Error('User not assigned to a room');
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
         .from('secret_chat_messages')
         .insert({
             text: text ? text.trim() : (imageUrl ? 'Image' : (audioUrl ? 'Audio Message' : '')),
@@ -68,14 +68,16 @@ export async function sendMessage(text: string, imageUrl?: string, audioUrl?: st
             audio_url: audioUrl || null,
             sender_id: userId,
             room_id: userData.room_id
-        });
+        })
+        .select()
+        .single();
 
     if (error) {
         console.error('Server Action Error:', error);
         throw new Error(error.message);
     }
     
-    return { success: true };
+    return { success: true, data };
 }
 
 export async function updateMessage(messageId: string, newText: string) {
@@ -126,14 +128,21 @@ export async function getInitialMessages() {
         return [];
     }
 
-    return data.map(msg => ({
+    // Filter out messages deleted for this user
+    const visibleMessages = data.filter(msg => {
+        const deletedFor = msg.deleted_for || [];
+        return !deletedFor.includes(userId);
+    });
+
+    return visibleMessages.map(msg => ({
         id: msg.id,
         text: msg.text,
         image_url: msg.image_url,
         audio_url: msg.audio_url,
         isUser: msg.sender_id === userId,
         created_at: msg.created_at,
-        sender_id: msg.sender_id
+        sender_id: msg.sender_id,
+        is_deleted: msg.is_deleted // Pass this flag
     }));
 }
 
@@ -150,4 +159,117 @@ export async function checkSession() {
         return { isAuthenticated: true, userId, roomId: data?.room_id };
     }
     return { isAuthenticated: false };
+}
+
+export async function deleteMessageForEveryone(messageId: string) {
+    const userId = await getSession();
+    if (!userId) throw new Error('Unauthorized');
+
+    // Soft delete: Update is_deleted flag instead of removing row
+    const { error } = await supabase
+        .from('secret_chat_messages')
+        .update({ 
+            is_deleted: true,
+            text: '🚫 This message was deleted',
+            image_url: null, 
+            audio_url: null 
+        })
+        .eq('id', messageId)
+        .eq('sender_id', userId);
+
+    if (error) {
+        console.error('Delete Error:', error);
+        throw new Error(error.message);
+    }
+    
+    return { success: true };
+}
+
+export async function deleteMessageForMe(messageId: string) {
+    const userId = await getSession();
+    if (!userId) throw new Error('Unauthorized');
+
+    // Fetch current deleted_for array
+    const { data: msg, error: fetchError } = await supabase
+        .from('secret_chat_messages')
+        .select('deleted_for')
+        .eq('id', messageId)
+        .single();
+    
+    if (fetchError) throw new Error(fetchError.message);
+
+    const currentDeletedFor = msg.deleted_for || [];
+    if (currentDeletedFor.includes(userId)) return { success: true };
+
+    const { error } = await supabase
+        .from('secret_chat_messages')
+        .update({ deleted_for: [...currentDeletedFor, userId] })
+        .eq('id', messageId);
+
+    if (error) {
+        console.error('Delete For Me Error:', error);
+        throw new Error(error.message);
+    }
+    
+    return { success: true };
+}
+
+export async function clearChat(scope: 'me' | 'everyone') {
+    const userId = await getSession();
+    if (!userId) throw new Error('Unauthorized');
+    
+    // Get Room ID
+    const { data: userData } = await supabase
+        .from('authorized_users')
+        .select('room_id')
+        .eq('passcode', userId)
+        .single();
+    
+    if (!userData?.room_id) throw new Error('No room found');
+    const roomId = userData.room_id;
+
+    if (scope === 'everyone') {
+        // Soft delete all active messages in the room
+        const { error } = await supabase
+            .from('secret_chat_messages')
+            .update({ 
+                is_deleted: true,
+                text: '🚫 This message was deleted',
+                image_url: null, 
+                audio_url: null 
+            })
+            .eq('room_id', roomId)
+            .eq('is_deleted', false);
+
+        if (error) throw new Error(error.message);
+    } else {
+        // Clear for me: Add userId to deleted_for array for all visible messages
+        // 1. Fetch messages that don't have me in deleted_for
+        const { data: messages, error: fetchError } = await supabase
+            .from('secret_chat_messages')
+            .select('id, deleted_for')
+            .eq('room_id', roomId);
+            
+        if (fetchError) throw new Error(fetchError.message);
+
+        // 2. Filter locally to find ones where I am NOT in deleted_for
+        const messagesToUpdate = messages.filter(msg => {
+            const deletedFor = msg.deleted_for || [];
+            return !deletedFor.includes(userId);
+        });
+
+        // 3. Update them (in parallel for now, assuming volume isn't massive)
+        // Ideally this would be a Postgres function or a single query if Postgres supported complex array updates easily via PostgREST
+        const updates = messagesToUpdate.map(msg => {
+            const currentDeletedFor = msg.deleted_for || [];
+            return supabase
+                .from('secret_chat_messages')
+                .update({ deleted_for: [...currentDeletedFor, userId] })
+                .eq('id', msg.id);
+        });
+
+        await Promise.all(updates);
+    }
+    
+    return { success: true };
 }
