@@ -2,10 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, LogOut, Image as ImageIcon, Smile, X, Loader2, Mic, Square, Trash2, Pencil, Check, Palette, Camera, Plus, Video, Phone, ChevronLeft, MoreVertical } from 'lucide-react';
+import { Send, LogOut, Image as ImageIcon, Smile, X, Loader2, Mic, Square, Trash2, Pencil, Check, Palette, Camera, Plus, Video, Phone, ChevronLeft, MoreVertical, Search, Gift } from 'lucide-react';
 import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 import { sendMessage, updateMessage, deleteMessageForEveryone, deleteMessageForMe, clearChat } from '../actions';
 import { supabase } from '@/app/lib/supabaseClient';
+
+const GIPHY_API_KEY = 'j5tfevMpOG5akj5A3fKqE6kVh5JbIQ8I'; // Using a public test key. Replace with your own for production.
 
 const THEMES = {
     whatsapp_dark: {
@@ -67,10 +69,14 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
 
     const [newMessage, setNewMessage] = useState('');
     const [showEmoji, setShowEmoji] = useState(false);
-    const [showAttachments, setShowAttachments] = useState(false);
+    const [showGif, setShowGif] = useState(false); // Add GIF state
+    const [gifs, setGifs] = useState<any[]>([]);
+    const [gifSearch, setGifSearch] = useState('');
+    const [loadingGifs, setLoadingGifs] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [showMenu, setShowMenu] = useState(false); // Add this
     const [clearingChat, setClearingChat] = useState(false); // Add this
+    const [showAttachments, setShowAttachments] = useState(false); // Restore accidentally removed state
     
     // Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -110,6 +116,31 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, previewImage, audioPreviewUrl, isRecording]);
+
+    // Fetch GIFs
+    useEffect(() => {
+        if (!showGif) return;
+        
+        const fetchGifs = async () => {
+            setLoadingGifs(true);
+            try {
+                const endpoint = gifSearch.trim() 
+                    ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${gifSearch}&limit=20`
+                    : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20`;
+                
+                const res = await fetch(endpoint);
+                const data = await res.json();
+                setGifs(data.data || []);
+            } catch (err) {
+                console.error("Failed to fetch GIFs", err);
+            } finally {
+                setLoadingGifs(false);
+            }
+        };
+
+        const timeout = setTimeout(fetchGifs, 500); // Debounce
+        return () => clearTimeout(timeout);
+    }, [showGif, gifSearch]);
 
     const handleEmojiClick = (emojiData: EmojiClickData) => {
         setNewMessage(prev => prev + emojiData.emoji);
@@ -311,6 +342,18 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
         } catch (error) {
             console.error("Clear chat failed", error);
             alert("Failed to clear chat");
+        }
+    };
+
+    const handleGifSelect = async (gifUrl: string) => {
+        setShowGif(false);
+        setUploading(true);
+        try {
+            await sendMessage('', gifUrl, undefined);
+        } catch (error) {
+            console.error("Failed to send GIF", error);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -556,6 +599,65 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                 )}
                 </AnimatePresence>
 
+                {/* GIF Picker Modal */}
+                <AnimatePresence>
+                {showGif && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        className={`absolute bottom-full left-0 sm:left-4 mb-2 z-50 shadow-2xl rounded-2xl overflow-hidden w-[320px] h-[400px] flex flex-col ${theme === 'whatsapp_light' ? 'bg-white' : 'bg-[#1f2c34]'}`}
+                    >
+                        {/* Search Bar */}
+                        <div className="p-3 border-b border-white/10 flex gap-2">
+                             <div className={`flex-1 flex items-center px-3 py-2 rounded-lg ${theme === 'whatsapp_light' ? 'bg-gray-100' : 'bg-[#2a3942]'}`}>
+                                <Search size={16} className="opacity-50 mr-2" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search GIFs..." 
+                                    className="bg-transparent text-sm w-full outline-none"
+                                    value={gifSearch}
+                                    onChange={(e) => setGifSearch(e.target.value)}
+                                    autoFocus
+                                />
+                             </div>
+                             <button onClick={() => setShowGif(false)} className="p-2 hover:bg-black/10 rounded-full">
+                                <X size={20} className="opacity-60" />
+                             </button>
+                        </div>
+                        
+                        {/* GIF Grid */}
+                        <div className="flex-1 overflow-y-auto p-2 scrollbar-hide">
+                            {loadingGifs ? (
+                                <div className="flex items-center justify-center h-full">
+                                    <Loader2 className="animate-spin opacity-50" />
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {gifs.map((gif) => (
+                                        <button 
+                                            key={gif.id} 
+                                            onClick={() => handleGifSelect(gif.images.fixed_height.url)}
+                                            className="rounded-lg overflow-hidden relative aspect-video bg-black/10 hover:opacity-90 transition-opacity"
+                                        >
+                                            <img 
+                                                src={gif.images.preview_gif.url} 
+                                                alt={gif.title} 
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {!loadingGifs && gifs.length === 0 && (
+                                <div className="text-center p-4 opacity-50 text-sm">No GIFs found</div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+                </AnimatePresence>
+
                 {/* Emoji Picker Modal */}
                 <AnimatePresence>
                 {showEmoji && (
@@ -728,10 +830,37 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                 </button>
                             </div>
                         ) : (
-                            <div className={`flex items-center rounded-3xl px-4 py-2 ${colors.input} border-[0.5px] border-black/10 dark:border-white/10`}>
+                            <div className={`flex items-center rounded-3xl px-2 py-2 ${colors.input} border-[0.5px] border-black/10 dark:border-white/10`}>
+                                <div className="flex items-center gap-1 mr-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setShowEmoji(!showEmoji);
+                                            setShowGif(false);
+                                        }} 
+                                        className={'p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400'}
+                                    >
+                                        <Smile size={20} className={showEmoji ? 'text-emerald-500' : ''} />
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setShowGif(!showGif);
+                                            setShowEmoji(false);
+                                        }} 
+                                        className={`p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${showGif ? 'text-pink-500' : 'text-gray-400'}`}
+                                    >
+                                        <Gift size={20} />
+                                    </button>
+                                </div>
+
                                 <textarea
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
+                                    onFocus={() => {
+                                        setShowEmoji(false);
+                                        setShowGif(false);
+                                    }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); }
                                     }}
