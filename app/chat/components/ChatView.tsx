@@ -358,6 +358,16 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
         }
     };
 
+    // Auto-resize textarea
+    useEffect(() => {
+        if (textAreaRef.current) {
+            textAreaRef.current.style.height = '24px'; // Reset to min height
+            const scrollHeight = textAreaRef.current.scrollHeight;
+            // Expand up to 200px (approx 8 lines) before scrolling
+            textAreaRef.current.style.height = `${Math.min(scrollHeight, 200)}px`; 
+        }
+    }, [newMessage]);
+
     return (
         <div className={`flex flex-col h-[100dvh] relative overflow-hidden transition-colors duration-300 ${colors.bg}`}>
             {/* Background Pattern */}
@@ -874,7 +884,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                     }}
                                     placeholder="Message.."
                                     rows={1}
-                                    className={`w-full bg-transparent p-0 focus:outline-none text-[16px] resize-none max-h-[100px] leading-relaxed ${colors.placeholder} placeholder:font-normal`}
+                                    className={`w-full bg-transparent p-0 focus:outline-none text-[16px] resize-none max-h-[200px] leading-relaxed ${colors.placeholder} placeholder:font-normal`}
                                     style={{ height: '24px', minHeight: '24px' }}
                                 />
                             </div>
