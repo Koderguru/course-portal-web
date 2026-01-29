@@ -145,7 +145,7 @@ export default function SecretChatPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col font-mono">
+        <div className="h-[100dvh] overflow-hidden bg-black text-white flex flex-col font-mono">
             {!isAuthenticated ? (
                 <LoginView onLoginSuccess={handleLoginSuccess} />
             ) : (

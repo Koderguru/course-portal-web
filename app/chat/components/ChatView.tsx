@@ -454,7 +454,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
 
                                     {msg.text && msg.text !== 'Image' && msg.text !== 'Audio Message' && (
                                         <div className={`relative inline-block text-left ${msg.image_url || msg.audio_url ? 'w-full px-1 pb-1' : ''}`}>
-                                            <span className={`break-words whitespace-pre-wrap font-sans text-[16px] leading-[22px] ${msg.is_deleted ? 'italic opacity-60' : ''}`}>
+                                            <span className={`break-words whitespace-pre-wrap font-poppins text-[16px] leading-[22px] ${msg.is_deleted ? 'italic opacity-60' : ''}`}>
                                                 {msg.text}
                                                 <span className="inline-block w-8 h-0"></span>
                                             </span>
