@@ -35,18 +35,18 @@ export default async function Home() {
   });
 
   return (
-    <main className="h-screen w-full bg-gray-50 dark:bg-black font-sans selection:bg-indigo-500 selection:text-white overflow-hidden flex flex-col justify-center items-center relative">
+    <main className="min-h-screen w-full bg-gray-50 dark:bg-black font-sans selection:bg-indigo-500 selection:text-white relative">
       <Preloader />
       <FloatingIcons />
       <SecretChat />
       
       {/* Background Grid - Absolute to not take space */}
-      <div className="absolute inset-0 w-full h-full bg-grid-slate-100/50 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/20 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))] pointer-events-none z-0"></div>
+      <div className="absolute inset-0 w-full h-full bg-grid-slate-100/50 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/20 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))] pointer-events-none z-0 fixed"></div>
 
-      <div className="z-10 w-full max-w-7xl mx-auto px-4 md:px-8 flex flex-col h-full justify-center">
+      <div className="z-10 w-full max-w-7xl mx-auto px-4 md:px-8 flex flex-col min-h-screen md:h-screen md:justify-center py-20 md:py-0">
           
-          {/* Header Section - Compact */}
-          <div className="text-center mb-4 sm:mb-8 pt-12 sm:pt-16 shrink-0 relative z-20">
+          {/* Header Section */}
+          <div className="text-center mb-8 shrink-0 relative z-20">
                 <h2 className="text-sm md:text-base font-medium text-blue-500 dark:text-blue-400 uppercase tracking-[0.2em] mb-3">
                     Welcome to Apna Coder
                 </h2>
@@ -61,8 +61,8 @@ export default async function Home() {
                 </p>
           </div>
 
-          {/* Cards Section - Takes remaining space */}
-          <div className="flex-1 flex items-center justify-center min-h-0 relative z-20">
+          {/* Cards Section */}
+          <div className="w-full relative z-20 mt-4 md:mt-0 md:flex-1 md:flex md:items-center md:justify-center">
             <HoverEffect items={formattedItems} className="py-0" />
           </div>
       </div>

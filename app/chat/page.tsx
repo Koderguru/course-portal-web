@@ -22,6 +22,7 @@ export default function SecretChatPage() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [senderId, setSenderId] = useState('');
+    const [roomId, setRoomId] = useState('');
     const [loading, setLoading] = useState(true);
 
     // Check existing session on mount
@@ -29,6 +30,7 @@ export default function SecretChatPage() {
         checkSession().then(session => {
             if (session.isAuthenticated && session.userId) {
                 setSenderId(session.userId);
+                setRoomId(session.roomId);
                 setIsAuthenticated(true);
             }
             setLoading(false);
@@ -36,7 +38,7 @@ export default function SecretChatPage() {
     }, []);
 
     useEffect(() => {
-        if (!isAuthenticated || !senderId) return;
+        if (!isAuthenticated || !senderId || !roomId) return;
 
         // Fetch initial messages
         getInitialMessages().then(msgs => {
@@ -48,13 +50,14 @@ export default function SecretChatPage() {
 
         // Subscribe to real-time changes
         const channel = supabase
-            .channel('secret_chat_updates')
+            .channel(`room_${roomId}`)
             .on(
                 'postgres_changes',
                 {
                     event: '*',
                     schema: 'public',
                     table: 'secret_chat_messages',
+                    filter: `room_id=eq.${roomId}` // Only listen to messages in this room
                 },
                 (payload) => {
                     const newMsg = payload.new as any;
@@ -62,14 +65,16 @@ export default function SecretChatPage() {
                     if (payload.eventType === 'INSERT') {
                         setMessages(prev => {
                             if (prev.some(m => m.id === newMsg.id)) return prev;
-                            return [...prev, {
+                            const messageElement = {
                                 id: newMsg.id,
                                 text: newMsg.text,
                                 image_url: newMsg.image_url,
                                 audio_url: newMsg.audio_url,
                                 isUser: newMsg.sender_id === senderId,
-                                created_at: newMsg.created_at
-                            } as Message];
+                                created_at: newMsg.created_at,
+                                sender_id: newMsg.sender_id // Add missing sender_id
+                            } as Message;
+                            return [...prev, messageElement];
                         });
                     } else if (payload.eventType === 'UPDATE') {
                         setMessages(prev => prev.map(msg => 
@@ -83,7 +88,7 @@ export default function SecretChatPage() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [isAuthenticated, senderId]);
+    }, [isAuthenticated, senderId, roomId]);
 
     const handleLoginSuccess = (userId: string) => {
         setSenderId(userId);

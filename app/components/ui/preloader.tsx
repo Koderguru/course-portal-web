@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { IntroAnimation } from './intro-animation';
 
 // Combined data for text and neon color (hex codes for text-stroke)
 const languages = [
@@ -33,6 +34,7 @@ export const Preloader = () => {
   const [index, setIndex] = useState(0);
   const [dimension, setDimension] = useState({ width: 0, height: 0 });
   const [show, setShow] = useState(true);
+  const [phase, setPhase] = useState<'intro' | 'text'>('intro');
 
   useEffect(() => {
     setDimension({ width: window.innerWidth, height: window.innerHeight });
@@ -40,6 +42,7 @@ export const Preloader = () => {
 
   useEffect(() => {
     if (!shouldRender) return;
+    if (phase === 'intro') return;
 
     // Mark as shown for this session
     hasShownSession = true;
@@ -57,7 +60,7 @@ export const Preloader = () => {
     }, index === 0 ? 2000 : 120); // Hold 'Apna Coder' longer (2s), then very fast (120ms) through others
 
     return () => clearTimeout(timeout);
-  }, [index, shouldRender]);
+  }, [index, shouldRender, phase]);
   
   if (!shouldRender) return null;
 
@@ -79,8 +82,13 @@ export const Preloader = () => {
 
   return (
     <AnimatePresence mode="wait">
-        {show && (
+        {show && phase === 'intro' && (
+            <IntroAnimation key="intro" onComplete={() => setPhase('text')} />
+        )}
+
+        {show && phase === 'text' && (
             <motion.div
+                key="text-loader"
                 variants={slideUp}
                 initial="initial"
                 exit="exit"

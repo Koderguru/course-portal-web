@@ -269,23 +269,27 @@ export const ChatView = ({ messages, senderId, onLogout }: ChatViewProps) => {
 
             {/* Header */}
             <header className={`shrink-0 h-[44px] ${colors.header} flex items-center justify-between px-2 z-20 shadow-sm transition-colors duration-300`}>
-                 <div className="flex items-center gap-1.5 flex-1 overflow-hidden">
+                 <div className="flex items-center gap-2 flex-1 overflow-hidden">
                      <button className={`${colors.icon} -ml-1 flex items-center`}>
                         <ChevronLeft size={26} />
                      </button>
                      <div className="relative shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white font-bold text-xs shadow-inner">
-                            {senderId.slice(0, 2).toUpperCase()}
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden border border-gray-200 shadow-sm">
+                             <img 
+                                src="/logo.png" 
+                                alt="Apna Chat" 
+                                className="w-full h-full object-cover"
+                             />
                         </div>
                      </div>
                      <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <span className={`font-semibold text-[15px] leading-tight truncate block ${colors.headerText}`}>
-                            My Contact
+                        <span className={`font-semibold text-[16px] leading-tight truncate block ${colors.headerText}`}>
+                            Apna Chat
                         </span>
                      </div>
                  </div>
                  
-                 <div className="flex items-center gap-4 px-2">
+                 <div className="flex items-center gap-5 px-3">
                      <button className={`${colors.icon}`}>
                          <Video size={20} />
                      </button>

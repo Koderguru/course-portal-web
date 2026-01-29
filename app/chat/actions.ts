@@ -49,13 +49,25 @@ export async function sendMessage(text: string, imageUrl?: string, audioUrl?: st
         throw new Error('Message cannot be empty');
     }
 
+    // Get Room ID for the user
+    const { data: userData } = await supabase
+        .from('authorized_users')
+        .select('room_id')
+        .eq('passcode', userId)
+        .single();
+    
+    if (!userData?.room_id) {
+        throw new Error('User not assigned to a room');
+    }
+
     const { error } = await supabase
         .from('secret_chat_messages')
         .insert({
             text: text ? text.trim() : (imageUrl ? 'Image' : (audioUrl ? 'Audio Message' : '')),
             image_url: imageUrl || null,
             audio_url: audioUrl || null,
-            sender_id: userId
+            sender_id: userId,
+            room_id: userData.room_id
         });
 
     if (error) {
@@ -92,9 +104,21 @@ export async function getInitialMessages() {
     const userId = await getSession();
     if (!userId) return [];
 
+    // Get Room ID for the user
+    const { data: userData } = await supabase
+        .from('authorized_users')
+        .select('room_id')
+        .eq('passcode', userId)
+        .single();
+    
+    if (!userData?.room_id) {
+        return [];
+    }
+
     const { data, error } = await supabase
         .from('secret_chat_messages')
         .select('*')
+        .eq('room_id', userData.room_id)
         .order('created_at', { ascending: true });
 
     if (error) {
@@ -116,7 +140,14 @@ export async function getInitialMessages() {
 export async function checkSession() {
     const userId = await getSession();
     if (userId) {
-        return { isAuthenticated: true, userId };
+        // Fetch room properties along with session
+        const { data } = await supabase
+            .from('authorized_users')
+            .select('room_id')
+            .eq('passcode', userId)
+            .single();
+            
+        return { isAuthenticated: true, userId, roomId: data?.room_id };
     }
     return { isAuthenticated: false };
 }
