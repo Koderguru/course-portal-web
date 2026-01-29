@@ -629,7 +629,6 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                     className="bg-transparent text-sm w-full outline-none"
                                     value={gifSearch}
                                     onChange={(e) => setGifSearch(e.target.value)}
-                                    autoFocus
                                 />
                              </div>
                              <button onClick={() => setShowGif(false)} className="p-2 hover:bg-black/10 rounded-full">
@@ -685,6 +684,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                             height={400}
                             lazyLoadEmojis={true}
                             previewConfig={{ showPreview: false }}
+                            autoFocusSearch={false}
                         />
                     </motion.div>
                 )}
