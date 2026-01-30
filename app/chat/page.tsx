@@ -18,6 +18,7 @@ interface Message {
     is_deleted?: boolean;
     is_read?: boolean;
     reply_to_id?: string;
+    reactions?: Record<string, string[]>;
 }
 
 export default function SecretChatPage() {
@@ -95,7 +96,8 @@ export default function SecretChatPage() {
                                 sender_id: newMsg.sender_id,
                                 is_deleted: newMsg.is_deleted,
                                 is_read: newMsg.is_read,
-                                reply_to_id: newMsg.reply_to_id
+                                reply_to_id: newMsg.reply_to_id,
+                                reactions: newMsg.reactions || {}
                             } as Message;
 
                             // If new message is NOT from me, mark it read immediately as I'm online
@@ -117,7 +119,8 @@ export default function SecretChatPage() {
                                     text: newMsg.text,
                                     is_deleted: newMsg.is_deleted,
                                     is_read: newMsg.is_read,
-                                    reply_to_id: newMsg.reply_to_id
+                                    reply_to_id: newMsg.reply_to_id,
+                                    reactions: newMsg.reactions || {}
                                 } : msg
                             ));
                         }

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Send, LogOut, Image as ImageIcon, Smile, X, Loader2, Mic, Square, Trash2, Pencil, Check, CheckCheck, Palette, Camera, Plus, Video, Phone, ChevronLeft, MoreVertical, Search, Gift, Reply } from 'lucide-react';
 import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
-import { sendMessage, updateMessage, deleteMessageForEveryone, deleteMessageForMe, clearChat } from '../actions';
+import { sendMessage, updateMessage, deleteMessageForEveryone, deleteMessageForMe, clearChat, toggleReaction } from '../actions';
 import { supabase } from '@/app/lib/supabaseClient';
 
 const GIPHY_API_KEY = 'j5tfevMpOG5akj5A3fKqE6kVh5JbIQ8I'; // Using a public test key. Replace with your own for production.
@@ -55,6 +55,7 @@ interface Message {
     is_deleted?: boolean;
     is_read?: boolean;
     reply_to_id?: string;
+    reactions?: Record<string, string[]>;
 }
 
 interface ChatViewProps {
@@ -101,6 +102,9 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
 
     // Fullscreen Image View State
     const [viewImage, setViewImage] = useState<string | null>(null);
+
+    // Reaction State
+    const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textAreaRef = useRef<HTMLTextAreaElement>(null); // Add this ref
@@ -218,6 +222,15 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
 
     const cancelReply = () => {
         setReplyMessage(null);
+    };
+
+    const handleReaction = async (messageId: string, emoji: string) => {
+        try {
+            await toggleReaction(messageId, emoji);
+            setActiveReactionMessageId(null);
+        } catch (error) {
+            console.error("Reaction failed", error);
+        }
     };
 
     // Audio Recording Functions
@@ -499,7 +512,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                 handleReply(msg);
                             }
                         }}
-                        className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'} group mb-1`}
+                        className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'} group ${msg.reactions && Object.values(msg.reactions).some(r => r.length > 0) ? 'mb-4' : 'mb-1'}`}
                     >
                         <div 
                             className={`
@@ -596,6 +609,51 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                             )}
                                         </div>
                                     )}
+
+                            {/* Interactive Reaction Button & Menu */}
+                            {!msg.is_deleted && (
+                                <div className={`absolute top-0 ${msg.isUser ? '-left-8' : '-right-8'} h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity px-1`}>
+                                    <div className="relative">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setActiveReactionMessageId(activeReactionMessageId === msg.id ? null : msg.id); }}
+                                            className={`p-1 rounded-full ${theme === 'whatsapp_light' ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-[#202c33] text-gray-400 hover:bg-[#374248]'} shadow-sm transition-colors`}
+                                        >
+                                            <Smile size={14} />
+                                        </button>
+                                        
+                                        {/* Action Menu Popup */}
+                                        {activeReactionMessageId === msg.id && (
+                                            <div className={`absolute bottom-full mb-2 ${msg.isUser ? 'right-0' : 'left-0'} bg-[#202c33] p-1.5 rounded-full shadow-lg flex gap-2 border border-[#374248] z-50 animate-in fade-in zoom-in duration-200 min-w-max`}>
+                                                {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
+                                                    <button
+                                                        key={emoji}
+                                                        onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); }}
+                                                        className="hover:scale-125 transition-transform text-lg leading-none"
+                                                    >
+                                                        {emoji}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Reactions Display */}
+                            {msg.reactions && Object.values(msg.reactions).some(arr => arr.length > 0) && (
+                                <div className="absolute -bottom-2.5 right-2 z-10">
+                                    <div className={`${theme === 'whatsapp_light' ? 'bg-white border-gray-100' : 'bg-[#1f2c34] border-[#0b141a]'} border rounded-full px-1.5 py-0.5 flex items-center gap-1 shadow-sm`}>
+                                        {Object.entries(msg.reactions).filter(([_, users]) => users.length > 0).slice(0, 3).map(([emoji, users]) => (
+                                            <span key={emoji} className="text-[10px] leading-none">{emoji}</span>
+                                        ))}
+                                        {(Object.values(msg.reactions).reduce((acc, curr) => acc + curr.length, 0) > 0) && (
+                                            <span className={`text-[9px] ${theme === 'whatsapp_light' ? 'text-gray-500' : 'text-gray-400'} font-medium leading-none ml-0.5`}>
+                                                {Object.values(msg.reactions).reduce((acc, curr) => acc + curr.length, 0)}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 ))}

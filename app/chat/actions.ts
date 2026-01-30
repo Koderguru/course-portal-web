@@ -145,7 +145,8 @@ export async function getInitialMessages() {
         sender_id: msg.sender_id,
         is_deleted: msg.is_deleted, // Pass this flag
         is_read: msg.is_read,
-        reply_to_id: msg.reply_to_id
+        reply_to_id: msg.reply_to_id,
+        reactions: msg.reactions || {}
     }));
 }
 
@@ -294,4 +295,49 @@ export async function markMessagesAsRead(roomId: string) {
         // We can ignore for now as we can't migrate DB.
         console.error('Mark Read Error (Column might be missing):', error);
     }
+}
+
+export async function toggleReaction(messageId: string, emoji: string) {
+    const userId = await getSession();
+    if (!userId) throw new Error('Unauthorized');
+
+    // Fetch current reactions
+    const { data: msg, error: fetchError } = await supabase
+        .from('secret_chat_messages')
+        .select('reactions')
+        .eq('id', messageId)
+        .single();
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    const reactions = msg.reactions || {};
+    const userIds = reactions[emoji] || [];
+
+    let newUserIds;
+    if (userIds.includes(userId)) {
+        // Remove reaction
+        newUserIds = userIds.filter((id: string) => id !== userId);
+    } else {
+        // Add reaction
+        newUserIds = [...userIds, userId];
+    }
+
+    const newReactions = { ...reactions, [emoji]: newUserIds };
+    
+    // Clean up empty emojis to keep JSON small
+    if (newUserIds.length === 0) {
+        delete newReactions[emoji];
+    }
+
+    const { error } = await supabase
+        .from('secret_chat_messages')
+        .update({ reactions: newReactions })
+        .eq('id', messageId);
+
+    if (error) {
+        console.error('Reaction Error:', error);
+        throw new Error(error.message);
+    }
+
+    return { success: true };
 }
