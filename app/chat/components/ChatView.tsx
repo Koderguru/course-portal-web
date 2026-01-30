@@ -407,10 +407,20 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
     // Auto-resize textarea
     useEffect(() => {
         if (textAreaRef.current) {
-            textAreaRef.current.style.height = '24px'; // Reset to min height
+            textAreaRef.current.style.height = '1.5em'; // Reset to single line height approx
             const scrollHeight = textAreaRef.current.scrollHeight;
-            // Expand up to 200px (approx 8 lines) before scrolling
-            textAreaRef.current.style.height = `${Math.min(scrollHeight, 200)}px`; 
+            
+            // Calculate height for 3 lines roughly (line-height is approx 1.5em or 24px)
+            // If lineHeight is ~24px, 3 lines is ~72px.
+            const maxHeiight = 80; 
+            
+            if (scrollHeight > maxHeiight) {
+                 textAreaRef.current.style.height = `${maxHeiight}px`;
+                 textAreaRef.current.style.overflowY = 'auto';
+            } else {
+                 textAreaRef.current.style.height = `${scrollHeight}px`;
+                 textAreaRef.current.style.overflowY = 'hidden';
+            }
         }
     }, [newMessage]);
 
@@ -971,8 +981,8 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                 </button>
                             </div>
                         ) : (
-                            <div className={`flex items-center rounded-3xl cx-2 py-2 ${colors.input} border-[0.5px] border-black/10 dark:border-white/10 ${editingId ? 'ring-2 ring-[#53bdeb]/50' : ''}`}>
-                                <div className="flex items-center gap-1 mr-2 pl-2">
+                            <div className={`flex items-center rounded-3xl px-2 py-1.5 ${colors.input} border-[0.5px] border-white/20 ${editingId ? 'ring-2 ring-[#53bdeb]/50' : ''}`}>
+                                <div className="flex items-center gap-1 mr-2 pl-1">
                                     {editingId ? (
                                          <button 
                                             type="button" 
@@ -1026,8 +1036,8 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                     }}
                                     placeholder="Message.."
                                     rows={1}
-                                    className={`w-full bg-transparent p-0 focus:outline-none text-[16px] resize-none max-h-[200px] leading-relaxed ${colors.placeholder} placeholder:font-normal`}
-                                    style={{ height: '24px', minHeight: '24px' }}
+                                    className={`w-full bg-transparent p-1 focus:outline-none text-[16px] resize-none leading-relaxed ${colors.placeholder} placeholder:font-normal scrollbar-thin scrollbar-thumb-white/20`}
+                                    style={{ minHeight: '24px' }}
                                 />
                             </div>
                         )}
