@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
-import { getInitialMessages, checkSession, logout } from './actions';
+import { getInitialMessages, checkSession, logout, markMessagesAsRead } from './actions';
 import { LoginView } from './components/LoginView';
 import { ChatView } from './components/ChatView';
 
@@ -16,6 +16,8 @@ interface Message {
     created_at: string;
     sender_id?: string;
     is_deleted?: boolean;
+    is_read?: boolean;
+    reply_to_id?: string;
 }
 
 export default function SecretChatPage() {
@@ -62,6 +64,8 @@ export default function SecretChatPage() {
                  ...m,
                  isUser: m.sender_id === senderId 
             })));
+            // Mark messages as read since we are viewing the room
+            markMessagesAsRead(roomId);
         });
 
         // Subscribe to real-time changes
@@ -89,8 +93,16 @@ export default function SecretChatPage() {
                                 isUser: newMsg.sender_id === senderId,
                                 created_at: newMsg.created_at,
                                 sender_id: newMsg.sender_id,
-                                is_deleted: newMsg.is_deleted
+                                is_deleted: newMsg.is_deleted,
+                                is_read: newMsg.is_read,
+                                reply_to_id: newMsg.reply_to_id
                             } as Message;
+
+                            // If new message is NOT from me, mark it read immediately as I'm online
+                            if (newMsg.sender_id !== senderId) {
+                                markMessagesAsRead(roomId);
+                            }
+
                             return [...prev, messageElement];
                         });
                     } else if (payload.eventType === 'UPDATE') {
@@ -103,7 +115,8 @@ export default function SecretChatPage() {
                                 msg.id === newMsg.id ? { 
                                     ...msg, 
                                     text: newMsg.text,
-                                    is_deleted: newMsg.is_deleted 
+                                    is_deleted: newMsg.is_deleted,
+                                    is_read: newMsg.is_read
                                 } : msg
                             ));
                         }
@@ -142,11 +155,11 @@ export default function SecretChatPage() {
     };
 
     if (loading) {
-        return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-mono">INITIALIZING_SECURE_LINK...</div>;
+        return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-sans">INITIALIZING...</div>;
     }
 
     return (
-        <div className="h-[100dvh] overflow-hidden bg-black text-white flex flex-col font-mono">
+        <div className="h-[100dvh] overflow-hidden bg-black text-white flex flex-col font-sans">
             {!isAuthenticated ? (
                 <LoginView onLoginSuccess={handleLoginSuccess} />
             ) : (

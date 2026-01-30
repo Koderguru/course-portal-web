@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, LogOut, Image as ImageIcon, Smile, X, Loader2, Mic, Square, Trash2, Pencil, Check, Palette, Camera, Plus, Video, Phone, ChevronLeft, MoreVertical, Search, Gift } from 'lucide-react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { Send, LogOut, Image as ImageIcon, Smile, X, Loader2, Mic, Square, Trash2, Pencil, Check, CheckCheck, Palette, Camera, Plus, Video, Phone, ChevronLeft, MoreVertical, Search, Gift, Reply } from 'lucide-react';
 import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 import { sendMessage, updateMessage, deleteMessageForEveryone, deleteMessageForMe, clearChat } from '../actions';
 import { supabase } from '@/app/lib/supabaseClient';
@@ -53,6 +53,8 @@ interface Message {
     created_at: string;
     sender_id?: string;
     is_deleted?: boolean;
+    is_read?: boolean;
+    reply_to_id?: string;
 }
 
 interface ChatViewProps {
@@ -84,6 +86,9 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
     
     // Delete State
     const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Reply State
+    const [replyMessage, setReplyMessage] = useState<Message | null>(null);
 
     // Attachments State
     const [previewImage, setPreviewImage] = useState<{ file: File, url: string } | null>(null);
@@ -179,22 +184,40 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
 
     const handleEditStart = (msg: Message) => {
         setEditingId(msg.id);
-        setEditText(msg.text);
+        setNewMessage(msg.text); // Move logic here
+        textAreaRef.current?.focus();
     };
 
-    const handleEditSave = async (id: string) => {
-        if (!editText.trim()) return;
+    const handleEditSave = async () => {
+        if (!editingId || !newMessage.trim()) return;
+        const currentId = editingId;
+        const currentText = newMessage;
+        
+        // Optimistic clear
         setEditingId(null);
+        setNewMessage('');
+        
         try {
-            await updateMessage(id, editText);
+            await updateMessage(currentId, currentText);
         } catch (error) {
             console.error("Edit failed", error);
+            // Ideally revert UI on error if needed
         }
     };
 
     const handleEditCancel = () => {
         setEditingId(null);
-        setEditText('');
+        setNewMessage('');
+        textAreaRef.current?.focus();
+    };
+
+    const handleReply = (msg: Message) => {
+        setReplyMessage(msg);
+        textAreaRef.current?.focus();
+    };
+
+    const cancelReply = () => {
+        setReplyMessage(null);
     };
 
     // Audio Recording Functions
@@ -260,6 +283,12 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Intercept for Edit
+        if (editingId) {
+            handleEditSave();
+            return;
+        }
+
         const hasText = !!newMessage.trim();
         const hasImage = !!previewImage;
         const hasAudio = !!audioBlob;
@@ -269,12 +298,14 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
         const textToSend = newMessage;
         const imageToUpload = previewImage;
         const audioToUpload = audioBlob;
+        const replyToId = replyMessage?.id;
 
         setNewMessage('');
         setPreviewImage(null);
         setAudioBlob(null);
         setAudioPreviewUrl(null);
         setShowEmoji(false);
+        setReplyMessage(null); // Clear reply
         setUploading(true);
 
         try {
@@ -300,7 +331,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                 audioUrl = data.publicUrl;
             }
 
-            const response = await sendMessage(textToSend, imageUrl, audioUrl);
+            const response = await sendMessage(textToSend, imageUrl, audioUrl, replyToId);
             
             if (response.success && response.data && onMessageSent) {
                 onMessageSent({
@@ -311,7 +342,9 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                     isUser: true,
                     created_at: response.data.created_at,
                     sender_id: response.data.sender_id,
-                    is_deleted: response.data.is_deleted
+                    is_deleted: response.data.is_deleted,
+                    is_read: response.data.is_read,
+                    reply_to_id: response.data.reply_to_id
                 });
             }
 
@@ -451,92 +484,102 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
             </header>
             
             {/* Messages Area */}
-            <main className="flex-1 overflow-y-auto w-full p-3 sm:p-5 space-y-2 relative z-10 scroll-smooth" onClick={() => setShowEmoji(false)}>
+            <main className="flex-1 overflow-y-auto w-full p-2 sm:p-4 space-y-2 relative z-10 scroll-smooth" onClick={() => setShowEmoji(false)}>
                  <AnimatePresence initial={false}>
                  {messages.map((msg) => (
                     <motion.div 
                         key={msg.id} 
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={0.1}
+                        onDragEnd={(e, { offset, velocity }) => {
+                            if (offset.x > 50) {
+                                handleReply(msg);
+                            }
+                        }}
                         className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'} group mb-1`}
                     >
                         <div 
                             className={`
-                                max-w-[85%] sm:max-w-[70%] md:max-w-[60%] w-fit shadow-sm relative text-[16px] leading-relaxed
+                                max-w-[85%] sm:max-w-[70%] md:max-w-[60%] w-fit shadow-sm relative text-[16px] leading-snug
                                 ${msg.isUser ? colors.outgoing : colors.incoming}
-                                ${msg.image_url ? 'p-1' : 'px-2 py-1.5'}
+                                ${msg.image_url ? 'p-1' : 'px-1.5 py-0.5'}
                             `}
                         >
-                            {editingId === msg.id ? (
-                                <div className="min-w-[120px] p-0.5">
-                                    <textarea
-                                        value={editText}
-                                        onChange={(e) => setEditText(e.target.value)}
-                                        className={`w-full bg-transparent p-1 text-[16px] leading-[22px] resize-none focus:outline-none border-b border-white/20 ${colors.headerText}`}
-                                        rows={Math.max(1, Math.ceil(editText.length / 30))}
-                                        autoFocus
-                                        style={{ height: 'auto', minHeight: '28px' }}
-                                    />
-                                    <div className="flex justify-end gap-3 mt-1.5">
-                                        <button onClick={handleEditCancel} className="p-1 hover:text-red-400 transition-colors">
-                                            <X size={16} />
-                                        </button>
-                                        <button onClick={() => handleEditSave(msg.id)} className="p-1 hover:text-green-400 transition-colors">
-                                            <Check size={16} />
-                                        </button>
+                            {/* Reply Quote Display */}
+                            {msg.reply_to_id && messages.find(m => m.id === msg.reply_to_id) && (() => {
+                                const repliedMsg = messages.find(m => m.id === msg.reply_to_id)!;
+                                return (
+                                    <div 
+                                        className={`mb-1 rounded-[6px] border-l-4 border-[#53bdeb] bg-black/10 overflow-hidden cursor-pointer flex p-1 gap-2 ${theme === 'whatsapp_light' ? 'bg-black/5' : ''}`}
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[#53bdeb] text-[10px] font-bold leading-tight mb-0.5">
+                                                {repliedMsg.isUser ? 'You' : 'Sender'}
+                                            </p>
+                                            <p className="text-[10px] opacity-80 truncate leading-tight">
+                                                {repliedMsg.image_url ? '📷 Photo' : (repliedMsg.audio_url ? '🎤 Audio' : repliedMsg.text)}
+                                            </p>
+                                        </div>
+                                        {repliedMsg.image_url && (
+                                            <img src={repliedMsg.image_url} className="h-8 w-8 object-cover rounded-[4px]" />
+                                        )}
                                     </div>
+                                );
+                            })()}
+
+                            {msg.image_url && (
+                                <div className="rounded-lg overflow-hidden relative mb-1">
+                                    <img 
+                                        src={msg.image_url} 
+                                        alt="attachment" 
+                                        className="w-full h-auto max-h-[300px] object-cover block cursor-pointer active:scale-95 transition-transform" 
+                                        loading="lazy"
+                                        onClick={() => msg.image_url && setViewImage(msg.image_url)}
+                                    />
                                 </div>
-                            ) : (
-                                <>
-                                    {msg.image_url && (
-                                        <div className="rounded-lg overflow-hidden relative mb-1">
-                                            <img 
-                                                src={msg.image_url} 
-                                                alt="attachment" 
-                                                className="w-full h-auto max-h-[300px] object-cover block cursor-pointer active:scale-95 transition-transform" 
-                                                loading="lazy"
-                                                onClick={() => msg.image_url && setViewImage(msg.image_url)}
-                                            />
-                                        </div>
-                                    )}
+                            )}
 
-                                    {msg.audio_url && (
-                                        <div className="flex items-center gap-2 w-full min-w-[240px] px-1 py-1">
-                                            <audio controls src={msg.audio_url} className="w-full h-9 rounded opacity-90" />
-                                        </div>
-                                    )}
+                            {msg.audio_url && (
+                                <div className="flex items-center gap-2 w-full min-w-[240px] px-1 py-1">
+                                    <audio controls src={msg.audio_url} className="w-full h-9 rounded opacity-90" />
+                                </div>
+                            )}
 
-                                    {msg.text && msg.text !== 'Image' && msg.text !== 'Audio Message' && (
-                                        <div className={`relative inline-block text-left ${msg.image_url || msg.audio_url ? 'w-full px-1 pb-1' : ''}`}>
-                                            <span className={`break-words whitespace-pre-wrap font-poppins text-[16px] leading-[22px] ${msg.is_deleted ? 'italic opacity-60' : ''}`}>
+                            {msg.text && msg.text !== 'Image' && msg.text !== 'Audio Message' && (
+                                <div className={`relative inline-block text-left ${msg.image_url || msg.audio_url ? 'w-full px-1 pb-1' : ''}`}>
+                                            <span className={`break-words whitespace-pre-wrap font-poppins text-[15px] leading-snug ${msg.is_deleted ? 'italic opacity-60' : ''} pr-1`}>
                                                 {msg.text}
-                                                <span className="inline-block w-8 h-0"></span>
                                             </span>
                                             
-                                            <span className={`float-right -mt-1.5 ml-1 flex items-center gap-0.5 select-none ${msg.image_url ? 'hidden' : ''} translate-y-1`}>
-                                                {msg.isUser && !msg.image_url && !msg.audio_url && !msg.is_deleted && (
-                                                    <button 
-                                                        onClick={() => handleEditStart(msg)}
-                                                        className={`opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/10 mr-0.5`}
-                                                        title="Edit Message"
-                                                    >
-                                                        <Pencil size={10} />
-                                                    </button>
-                                                )}
-                                                {msg.isUser && !msg.is_deleted && (
-                                                    <button 
-                                                        onClick={() => setDeletingId(msg.id)}
-                                                        className={`opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/10 mr-0.5`}
-                                                        title="Delete Message"
-                                                    >
-                                                        <Trash2 size={10} />
-                                                    </button>
-                                                )}
-                                                <span className={`text-[11px] font-normal ${colors.dateDetails}`}>
+                                            <span className={`float-right -mb-1 ml-1 flex items-center gap-0.5 select-none ${msg.image_url ? 'hidden' : ''} relative top-[4px]`}>
+                                                <div className="hidden group-hover:flex items-center gap-0.5 mr-1">
+                                                    {msg.isUser && !msg.image_url && !msg.audio_url && !msg.is_deleted && (
+                                                        <button 
+                                                            onClick={() => handleEditStart(msg)}
+                                                            className={`p-0.5 rounded hover:bg-black/10`}
+                                                            title="Edit Message"
+                                                        >
+                                                            <Pencil size={10} />
+                                                        </button>
+                                                    )}
+                                                    {msg.isUser && !msg.is_deleted && (
+                                                        <button 
+                                                            onClick={() => setDeletingId(msg.id)}
+                                                            className={`p-0.5 rounded hover:bg-black/10`}
+                                                            title="Delete Message"
+                                                        >
+                                                            <Trash2 size={10} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <span className={`text-[9px] font-normal ${colors.dateDetails}`}>
                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: true }).toLowerCase()}
                                                 </span>
                                                 {msg.isUser && (
-                                                    <Check size={14} className={`ml-0.5 text-[#53bdeb]`} />
+                                                    msg.is_read ? <CheckCheck size={14} className="ml-0.5 text-[#53bdeb]" /> : <Check size={14} className="ml-0.5 text-white/60" />
                                                 )}
                                             </span>
                                         </div>
@@ -545,14 +588,14 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                     {/* Image has its own absolute timestamp */}
                                     {msg.image_url && (
                                         <div className="absolute bottom-2 right-2 flex items-center gap-1 drop-shadow-md bg-black/20 px-1 rounded-sm backdrop-blur-[1px]">
-                                            <span className="text-[10px] text-white font-medium">
+                                            <span className="text-[9px] text-white font-medium">
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: true }).toLowerCase()}
                                             </span>
-                                            {msg.isUser && <Check size={12} className="text-white" />}
+                                            {msg.isUser && (
+                                                msg.is_read ? <CheckCheck size={12} className="text-[#53bdeb]" /> : <Check size={12} className="text-white/80" />
+                                            )}
                                         </div>
                                     )}
-                                </>
-                            )}
                         </div>
                     </motion.div>
                 ))}
@@ -818,6 +861,35 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                     )}
                 </AnimatePresence>
 
+                {/* Reply Preview */}
+                <AnimatePresence>
+                    {replyMessage && (
+                        <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="bg-black/40 backdrop-blur-sm border-t border-white/5 relative z-10"
+                        >
+                             <div className={`mx-2 mt-2 p-2 rounded-lg border-l-4 border-[#53bdeb] bg-[#1f2c34] flex justify-between items-center ${theme === 'whatsapp_light' ? 'bg-white shadow-sm' : ''}`}>
+                                <div className="flex-1 min-w-0 overflow-hidden">
+                                    <p className="text-[#53bdeb] text-xs font-bold mb-0.5">
+                                        {replyMessage.isUser ? 'You' : 'Sender'}
+                                    </p>
+                                    <p className={`text-xs truncate ${theme === 'whatsapp_light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {replyMessage.image_url ? '📷 Photo' : (replyMessage.audio_url ? '🎤 Audio' : replyMessage.text)}
+                                    </p>
+                                </div>
+                                {replyMessage.image_url && (
+                                     <img src={replyMessage.image_url} className="h-9 w-9 object-cover rounded ml-2" />
+                                )}
+                                <button onClick={cancelReply} className="p-1 ml-2 text-gray-400 hover:text-red-400">
+                                    <X size={16} />
+                                </button>
+                             </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* Main Input Bar */}
                 <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex items-center gap-3 p-3 pt-2">
                     <button 
@@ -833,7 +905,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                          {isRecording ? (
                             <div className={`h-[42px] flex items-center px-4 rounded-full gap-3 ${theme === 'whatsapp_light' ? 'bg-white' : 'bg-[#1c1c1e]'}`}>
                                 <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                                <span className="text-red-500 font-mono text-sm">{formatTime(recordingTime)}</span>
+                                <span className="text-red-500 font-sans text-sm font-medium">{formatTime(recordingTime)}</span>
                                 <div className="flex-1" />
                                 <button type="button" onClick={cancelRecording} className="text-xs text-gray-400 hover:text-red-400 mr-4 tracking-wide font-medium">CANCEL</button>
                                 <button type="button" onClick={stopRecording} className="text-[#53bdeb] font-semibold text-sm">
@@ -841,34 +913,46 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                 </button>
                             </div>
                         ) : (
-                            <div className={`flex items-center rounded-3xl px-2 py-2 ${colors.input} border-[0.5px] border-black/10 dark:border-white/10`}>
-                                <div className="flex items-center gap-1 mr-2">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            if (!showEmoji) {
-                                                textAreaRef.current?.blur();
-                                            }
-                                            setShowEmoji(!showEmoji);
-                                            setShowGif(false);
-                                        }} 
-                                        className={'p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400'}
-                                    >
-                                        <Smile size={20} className={showEmoji ? 'text-emerald-500' : ''} />
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            if (!showGif) {
-                                                textAreaRef.current?.blur();
-                                            }
-                                            setShowGif(!showGif);
-                                            setShowEmoji(false);
-                                        }} 
-                                        className={`p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${showGif ? 'text-pink-500' : 'text-gray-400'}`}
-                                    >
-                                        <Gift size={20} />
-                                    </button>
+                            <div className={`flex items-center rounded-3xl cx-2 py-2 ${colors.input} border-[0.5px] border-black/10 dark:border-white/10 ${editingId ? 'ring-2 ring-[#53bdeb]/50' : ''}`}>
+                                <div className="flex items-center gap-1 mr-2 pl-2">
+                                    {editingId ? (
+                                         <button 
+                                            type="button" 
+                                            onClick={handleEditCancel}
+                                            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-red-400"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => {
+                                                    if (!showEmoji) {
+                                                        textAreaRef.current?.blur();
+                                                    }
+                                                    setShowEmoji(!showEmoji);
+                                                    setShowGif(false);
+                                                }} 
+                                                className={'p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400'}
+                                            >
+                                                <Smile size={20} className={showEmoji ? 'text-emerald-500' : ''} />
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => {
+                                                    if (!showGif) {
+                                                        textAreaRef.current?.blur();
+                                                    }
+                                                    setShowGif(!showGif);
+                                                    setShowEmoji(false);
+                                                }} 
+                                                className={`p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${showGif ? 'text-pink-500' : 'text-gray-400'}`}
+                                            >
+                                                <Gift size={20} />
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
 
                                 <textarea
@@ -899,7 +983,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                             disabled={uploading || (!newMessage.trim() && !audioPreviewUrl && !previewImage)} 
                             className={`font-bold text-[13px] tracking-wide px-3 py-2 shrink-0 ${theme === 'whatsapp_light' ? 'text-[#007AFF]' : 'text-[#53bdeb]'}`}
                         >
-                            {uploading ? <Loader2 size={18} className="animate-spin" /> : "SEND"}
+                            {uploading ? <Loader2 size={18} className="animate-spin" /> : (editingId ? <Check size={20} /> : "SEND")}
                         </button>
                     )}
                 </form>

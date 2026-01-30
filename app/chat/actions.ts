@@ -38,7 +38,7 @@ export async function logout() {
     return { success: true };
 }
 
-export async function sendMessage(text: string, imageUrl?: string, audioUrl?: string) {
+export async function sendMessage(text: string, imageUrl?: string, audioUrl?: string, replyToId?: string) {
     const userId = await getSession();
     
     if (!userId) {
@@ -67,7 +67,8 @@ export async function sendMessage(text: string, imageUrl?: string, audioUrl?: st
             image_url: imageUrl || null,
             audio_url: audioUrl || null,
             sender_id: userId,
-            room_id: userData.room_id
+            room_id: userData.room_id,
+            reply_to_id: replyToId || null
         })
         .select()
         .single();
@@ -142,7 +143,9 @@ export async function getInitialMessages() {
         isUser: msg.sender_id === userId,
         created_at: msg.created_at,
         sender_id: msg.sender_id,
-        is_deleted: msg.is_deleted // Pass this flag
+        is_deleted: msg.is_deleted, // Pass this flag
+        is_read: msg.is_read,
+        reply_to_id: msg.reply_to_id
     }));
 }
 
@@ -272,4 +275,23 @@ export async function clearChat(scope: 'me' | 'everyone') {
     }
     
     return { success: true };
+}
+
+export async function markMessagesAsRead(roomId: string) {
+    const userId = await getSession();
+    if (!userId) return;
+
+    // Update messages where I am NOT the sender and is_read is false
+    const { error } = await supabase
+        .from('secret_chat_messages')
+        .update({ is_read: true })
+        .eq('room_id', roomId)
+        .neq('sender_id', userId)
+        .is('is_read', false); // Assuming default is false or null
+
+    if (error) {
+        // If column doesn't exist, this will error silently in logs usually or just fail.
+        // We can ignore for now as we can't migrate DB.
+        console.error('Mark Read Error (Column might be missing):', error);
+    }
 }
