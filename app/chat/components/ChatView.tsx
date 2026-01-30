@@ -981,7 +981,7 @@ export const ChatView = ({ messages, senderId, onLogout, onMessageSent }: ChatVi
                                 </button>
                             </div>
                         ) : (
-                            <div className={`flex items-center rounded-3xl px-2 py-1.5 ${colors.input} border-[0.5px] border-white/20 ${editingId ? 'ring-2 ring-[#53bdeb]/50' : ''}`}>
+                            <div className={`flex items-center rounded-[20px] px-3 py-1.5 ${colors.input} border-[0.5px] border-white/20 ${editingId ? 'ring-2 ring-[#53bdeb]/50' : ''}`}>
                                 <div className="flex items-center gap-1 mr-2 pl-1">
                                     {editingId ? (
                                          <button 

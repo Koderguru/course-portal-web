@@ -120,7 +120,9 @@ export default function SecretChatPage() {
                                     is_deleted: newMsg.is_deleted,
                                     is_read: newMsg.is_read,
                                     reply_to_id: newMsg.reply_to_id,
-                                    reactions: newMsg.reactions || {}
+                                    reactions: newMsg.reactions || {},
+                                    image_url: newMsg.image_url,
+                                    audio_url: newMsg.audio_url
                                 } : msg
                             ));
                         }
