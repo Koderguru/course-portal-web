@@ -116,7 +116,8 @@ export default function SecretChatPage() {
                                     ...msg, 
                                     text: newMsg.text,
                                     is_deleted: newMsg.is_deleted,
-                                    is_read: newMsg.is_read
+                                    is_read: newMsg.is_read,
+                                    reply_to_id: newMsg.reply_to_id
                                 } : msg
                             ));
                         }
