@@ -1,10 +1,16 @@
 import Link from 'next/link';
-import { Batch } from '../../types/Batch';
 import { BatchImage } from '../../components/ui/BatchImage';
+
+interface GridBatch {
+  titleId: string;
+  title: string;
+  url: string; // Changed from imageUrl
+  singleBatch?: boolean; // Changed from isSingleBatch
+}
 
 interface BatchGridProps {
   title: string;
-  batches: Batch[];
+  batches: GridBatch[];
 }
 
 const getBadgeColor = (isSingleBatch: boolean) => {
@@ -44,7 +50,7 @@ export default function BatchGrid({ title, batches }: BatchGridProps) {
                 {/* Image Container */}
                 <div className="aspect-[16/9] relative overflow-hidden bg-gray-100 dark:bg-zinc-800">
                     <BatchImage
-                      src={batch.imageUrl}
+                      src={batch.url}
                       alt={batch.title}
                       className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
                     />
@@ -55,8 +61,8 @@ export default function BatchGrid({ title, batches }: BatchGridProps) {
                 <div className="p-5 flex-1 flex flex-col">
                   {/* Badge */}
                   <div className="mb-3">
-                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBadgeColor(batch.isSingleBatch)}`}>
-                        {batch.isSingleBatch ? 'Course' : 'Bundle'}
+                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBadgeColor(!!batch.singleBatch)}`}>
+                        {batch.singleBatch ? 'Course' : 'Bundle'}
                      </span>
                   </div>
 

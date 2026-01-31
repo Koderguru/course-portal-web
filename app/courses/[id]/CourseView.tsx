@@ -1,22 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BatchContent } from '../../types/BatchContent';
-import { Lesson, formatDuration } from '../../types/Lesson';
+import { Course, Lesson } from '../../types/api';
 import VideoPlayer from '../../components/VideoPlayer';
 import Link from 'next/link';
 import { ChevronDown, PlayCircle, FileText, CheckCircle, ChevronLeft, Menu, Youtube } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
+// Helper for duration
+const formatDuration = (seconds?: number): string => {
+  if (!seconds) return '';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+};
+
 interface CourseViewProps {
-  content: BatchContent;
+  content: Course;
 }
 
 export default function CourseView({ content }: CourseViewProps) {
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(() => {
     // Auto-select the first video lesson
     for (const section of content.sections) {
-        const firstVideo = section.lessons.find(l => l.type === 'VIDEO');
+        const firstVideo = section.lessons.find(l => l.type === 'video'); // Lowercase 'video' as per API
         if (firstVideo) return firstVideo;
     }
     return null;
@@ -32,7 +41,7 @@ export default function CourseView({ content }: CourseViewProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLessonClick = (lesson: Lesson) => {
-    if (lesson.type === 'VIDEO') {
+    if (lesson.type === 'video') {
         setActiveLesson(lesson);
         // On mobile, close menu after selection
         setMobileMenuOpen(false);
@@ -90,113 +99,98 @@ export default function CourseView({ content }: CourseViewProps) {
                              <h2 className="text-lg lg:text-xl font-bold text-white mb-2">{activeLesson.title}</h2>
                              <div className="flex items-center gap-4 text-xs lg:text-sm text-zinc-500">
                                  {activeLesson.duration && <span>{formatDuration(activeLesson.duration)}</span>}
-                                 {activeLesson.sectionTitle && (
-                                     <>
-                                        <span className="w-1 h-1 rounded-full bg-zinc-700"></span>
-                                        <span>{activeLesson.sectionTitle}</span>
-                                     </>
-                                 )}
                              </div>
                          </div>
                     </div>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-500">
-                         <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mb-4">
-                            <PlayCircle className="w-8 h-8 opacity-50" />
-                         </div>
-                         <h3 className="text-lg font-medium text-white mb-1">Select a lesson</h3>
-                         <p>Choose a video from the list to start watching.</p>
+                    <div className="flex items-center justify-center h-full text-zinc-500">
+                        Select a lesson to start learning
                     </div>
                 )}
             </main>
 
-            {/* Right/Sidebar Column: Content List */}
-            <aside 
-                className={cn(
-                    "absolute inset-y-0 right-0 w-full sm:w-80 lg:w-96 bg-zinc-900 border-l border-zinc-800 flex flex-col transform transition-transform duration-300 z-20 lg:relative lg:transform-none lg:flex h-full",
-                    mobileMenuOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-                )}
-            >
-                <div className="p-4 border-b border-zinc-800 bg-zinc-900 shrink-0">
-                    <h3 className="font-semibold text-white">Course Content</h3>
-                    <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-zinc-500">{totalLessons} Lessons</span>
-                        <span className="text-xs text-white font-medium">{Math.round(currentProgress)}% Completed</span>
+            {/* Right/Sidebar Column: Lesson List */}
+             <aside className={cn("w-full lg:w-96 bg-zinc-950 border-l border-zinc-800 flex flex-col absolute inset-0 z-20 lg:static transition-transform duration-300", mobileMenuOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0")}>
+                <div className="p-4 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/50">
+                    <div>
+                        <h2 className="font-semibold text-white">Course Content</h2>
+                        <p className="text-xs text-zinc-500 mt-0.5">{totalLessons} lessons</p>
                     </div>
-                    {/* Progress Bar tied to current video */}
-                    <div className="h-1 w-full bg-zinc-800 rounded-full mt-3 overflow-hidden">
-                        <div 
-                            className="h-full bg-indigo-600 transition-all duration-300 ease-linear rounded-full" 
-                            style={{ width: `${currentProgress}%` }}
-                        ></div>
-                    </div>
+                    {/* Close button for mobile */}
+                    <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden p-2 text-zinc-400">
+                        <ChevronDown className="w-5 h-5 rotate-90" />
+                    </button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="flex flex-col pb-4">
-                        {content.sections.map((section, idx) => {
-                             // Check if section contains current lesson to open it by default
-                             const containsActive = section.lessons.some(l => l.id === activeLesson?.id);
-                             return (
-                                <div key={section.id} className="border-b border-zinc-800 last:border-0">
-                                    <details className="group" open={containsActive || idx === 0}>
-                                        <summary className="cursor-pointer list-none px-4 py-3 font-medium text-sm text-zinc-300 hover:bg-zinc-800/50 transition-colors flex justify-between items-center bg-zinc-900 sticky top-0 z-10 selection:bg-transparent">
-                                            <span className="truncate pr-2">{section.title}</span>
-                                            <ChevronDown className="w-4 h-4 text-zinc-500 group-open:rotate-180 transition-transform" />
-                                        </summary>
-                                        
-                                        <div className="flex flex-col bg-zinc-900/50">
-                                            {section.lessons.map((lesson) => {
-                                                const isActive = activeLesson?.id === lesson.id;
-                                                return (
-                                                    <button
-                                                        key={lesson.id}
-                                                        onClick={() => handleLessonClick(lesson)}
-                                                        className={cn(
-                                                            "flex items-start gap-3 px-4 py-3 text-left transition-colors text-sm hover:bg-zinc-800 relative group/item",
-                                                            isActive ? "bg-indigo-500/10 hover:bg-indigo-500/20" : ""
-                                                        )}
-                                                    >
-                                                        {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>}
-                                                        
-                                                        <div className={cn("mt-0.5 shrink-0", isActive ? "text-indigo-400" : "text-zinc-500 group-hover/item:text-zinc-400")}>
-                                                            {lesson.type === 'VIDEO' ? (
-                                                                <PlayCircle className="w-4 h-4" />
-                                                            ) : lesson.type === 'YOUTUBE' ? (
-                                                                <Youtube className="w-4 h-4" />
-                                                            ) : (
-                                                                <FileText className="w-4 h-4" />
-                                                            )}
-                                                        </div>
-                                                        
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className={cn("leading-tight mb-1 transition-colors", isActive ? "text-indigo-300 font-medium" : "text-zinc-400 group-hover/item:text-zinc-300")}>
-                                                                {lesson.title}
-                                                            </p>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-xs text-zinc-600">{formatDuration(lesson.duration)}</span>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </details>
-                                </div>
-                             )
-                        })}
-                    </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                    {content.sections.map((section) => (
+                        <div key={section.id} className="mb-4">
+                            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-3 py-2 mb-1 flex items-center gap-2">
+                                {section.title}
+                                {!section.isAvailable && <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">Coming Soon</span>}
+                            </h3>
+                            <div className="space-y-0.5">
+                                {section.lessons.map((lesson) => {
+                                    const isActive = activeLesson?.id === lesson.id;
+                                    return (
+                                        <button
+                                            key={lesson.id}
+                                            onClick={() => handleLessonClick(lesson)}
+                                            className={cn(
+                                                "w-full flex items-start gap-3 p-3 text-left rounded-lg transition-all group",
+                                                isActive 
+                                                    ? "bg-zinc-900 ring-1 ring-zinc-800 shadow-sm" 
+                                                    : "hover:bg-zinc-900/50"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                                                isActive ? "text-green-500 bg-green-500/10" : "text-zinc-600 group-hover:text-zinc-400"
+                                            )}>
+                                                {lesson.type === 'video' ? (
+                                                    <PlayCircle className="w-5 h-5" />
+                                                ) : lesson.type === 'pdf' ? (
+                                                    <FileText className="w-4 h-4" />
+                                                ) : (
+                                                    <Youtube className="w-5 h-5" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={cn("text-sm font-medium leading-snug", isActive ? "text-green-400" : "text-zinc-300")}>
+                                                    {lesson.title}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-1.5">
+                                                    {lesson.duration && (
+                                                        <span className="text-xs text-zinc-500">{formatDuration(lesson.duration)}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {isActive && (
+                                                <div className="mt-1">
+                                                    {/* Animated EQ or just an indicator */}
+                                                    <div className="flex gap-0.5 h-3 items-end">
+                                                        <span className="w-0.5 bg-green-500 animate-[music-bar_1s_ease-in-out_infinite]" style={{ animationDelay: '0ms' }} />
+                                                        <span className="w-0.5 bg-green-500 animate-[music-bar_1s_ease-in-out_infinite]" style={{ animationDelay: '200ms' }} />
+                                                        <span className="w-0.5 bg-green-500 animate-[music-bar_1s_ease-in-out_infinite]" style={{ animationDelay: '400ms' }} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </aside>
-            
-            {/* Mobile Overlay */}
-            {mobileMenuOpen && (
-                <div 
-                    className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 lg:hidden"
-                    onClick={() => setMobileMenuOpen(false)}
-                />
-            )}
         </div>
+
+        <style jsx>{`
+            @keyframes music-bar {
+                0%, 100% { height: 30%; }
+                50% { height: 100%; }
+            }
+        `}</style>
     </div>
   );
 }
