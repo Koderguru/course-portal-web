@@ -1,23 +1,39 @@
 import { Section, parseSectionFromJson } from './Section';
 import { Lesson } from './Lesson';
 import { LessonType } from './LessonType';
+import { Batch } from './Batch';
 
 export interface BatchContent {
   id: string;
   title: string;
   description: string;
   sections: Section[];
+  batches?: Batch[];
 }
 
 export function parseBatchContentFromJson(json: any): BatchContent {
     const sectionsJson = Array.isArray(json.sections) ? json.sections : [];
     const sections = sectionsJson.map(parseSectionFromJson);
 
+    // Parse batches if they exist (for Bundles)
+    const batchesJson = Array.isArray(json.batches) ? json.batches : [];
+    const batches: Batch[] = batchesJson.map((item: any) => ({
+        titleId: item.titleId,
+        title: item.title || item.titleId,
+        imageUrl: item.url || "",
+        id: item._id,
+        contentHash: item.contentHash,
+        created: item.created,
+        modified: item.modified,
+        isSingleBatch: item.singleBatch || false
+    }));
+
     return {
         id: json.id || '',
         title: json.title || '',
         description: json.description || '',
-        sections
+        sections,
+        batches
     };
 }
 
