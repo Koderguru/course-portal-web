@@ -35,7 +35,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ id: s
           {batches.map((batch) => (
             <Link
               key={batch.titleId} 
-              href={`/courses/${batch.titleId}`}
+              href={batch.singleBatch ? `/courses/${batch.titleId}` : `/batches/${batch.titleId}`}
               className="block group h-full"
             >
               <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col">
