@@ -121,7 +121,7 @@ export function DeactivationCountdown() {
                 </strong>.
               </p>
               <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-5 italic">
-                ⚠️ This is not intentional — we are not doing this on purpose. We respect content creators and their rights. This step is only being taken as a precaution to stay on the safe side.
+                ⚠️ We respect content creators and their rights. This step is only being taken as a precaution to stay on the safe side.
               </p>
 
               {/* Countdown boxes */}
