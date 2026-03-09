@@ -56,7 +56,7 @@ export function DeactivationCountdown() {
     <>
       {/* ───── Corner Badge (always visible) ───── */}
       <div
-        className={`fixed bottom-4 right-4 z-[9999] flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-2xl border backdrop-blur-md cursor-pointer transition-all duration-300 hover:scale-105 select-none ${
+        className={`fixed bottom-3 right-3 sm:bottom-4 sm:right-4 z-[9999] flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl shadow-2xl border backdrop-blur-md cursor-pointer transition-all duration-300 hover:scale-105 select-none ${
           isCritical
             ? "bg-red-600/95 border-red-400 text-white"
             : isUrgent
@@ -66,12 +66,12 @@ export function DeactivationCountdown() {
         onClick={() => setShowPopup(true)}
         title="Site deactivation countdown"
       >
-        <Clock className="w-4 h-4 animate-pulse" />
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-extrabold tabular-nums leading-none">
+        <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-pulse" />
+        <div className="flex items-baseline gap-1 sm:gap-1.5">
+          <span className="text-xl sm:text-2xl font-extrabold tabular-nums leading-none">
             {daysLeft}
           </span>
-          <span className="text-[11px] font-medium opacity-80 leading-none">
+          <span className="text-[10px] sm:text-[11px] font-medium opacity-80 leading-none">
             {daysLeft === 1 ? "day" : "days"} left
           </span>
         </div>
@@ -79,7 +79,7 @@ export function DeactivationCountdown() {
 
       {/* ───── Popup Modal ───── */}
       {showPopup && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center p-3 sm:p-4">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
@@ -87,7 +87,7 @@ export function DeactivationCountdown() {
           />
 
           {/* Modal */}
-          <div className="relative w-full max-w-md animate-[slideUp_0.3s_ease-out] rounded-2xl overflow-hidden shadow-2xl">
+          <div className="relative w-full max-w-md animate-[slideUp_0.3s_ease-out] rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl">
             {/* Top warning strip */}
             <div
               className={`px-6 py-3 flex items-center gap-2 text-white text-sm font-semibold ${
@@ -98,7 +98,7 @@ export function DeactivationCountdown() {
                   : "bg-gradient-to-r from-amber-500 to-orange-500"
               }`}
             >
-              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
               <span>Site Deactivation Warning</span>
               <button
                 className="ml-auto p-0.5 rounded-full hover:bg-white/20 transition"
@@ -109,7 +109,7 @@ export function DeactivationCountdown() {
             </div>
 
             {/* Body */}
-            <div className="bg-white dark:bg-slate-900 px-6 py-6">
+            <div className="bg-white dark:bg-slate-900 px-4 py-5 sm:px-6 sm:py-6">
               <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed mb-5">
                 This site will be <strong className="text-red-600 dark:text-red-400">permanently deactivated</strong> on{" "}
                 <strong>
@@ -123,7 +123,7 @@ export function DeactivationCountdown() {
               </p>
 
               {/* Countdown boxes */}
-              <div className="grid grid-cols-4 gap-2 mb-5">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-5">
                 {[
                   { label: "Days", value: timeLeft.days },
                   { label: "Hours", value: timeLeft.hours },
@@ -132,7 +132,7 @@ export function DeactivationCountdown() {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className={`flex flex-col items-center py-3 rounded-xl border ${
+                    className={`flex flex-col items-center py-2 sm:py-3 rounded-lg sm:rounded-xl border ${
                       isCritical
                         ? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800"
                         : isUrgent
@@ -141,7 +141,7 @@ export function DeactivationCountdown() {
                     }`}
                   >
                     <span
-                      className={`text-2xl font-extrabold tabular-nums ${
+                      className={`text-lg sm:text-2xl font-extrabold tabular-nums ${
                         isCritical
                           ? "text-red-600 dark:text-red-400"
                           : isUrgent
@@ -151,7 +151,7 @@ export function DeactivationCountdown() {
                     >
                       {String(item.value).padStart(2, "0")}
                     </span>
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                    <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 font-medium">
                       {item.label}
                     </span>
                   </div>
