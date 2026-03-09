@@ -34,33 +34,14 @@ export const Preloader = () => {
   const [index, setIndex] = useState(0);
   const [dimension, setDimension] = useState({ width: 0, height: 0 });
   const [show, setShow] = useState(true);
-  const [phase, setPhase] = useState<'intro' | 'text'>('intro');
-
   useEffect(() => {
     setDimension({ width: window.innerWidth, height: window.innerHeight });
   }, []);
 
   useEffect(() => {
     if (!shouldRender) return;
-    if (phase === 'intro') return;
-
-    // Mark as shown for this session
     hasShownSession = true;
-
-    if (index === languages.length - 1) {
-        // End of sequence
-        setTimeout(() => {
-            setShow(false);
-        }, 1000);
-        return;
-    }
-
-    const timeout = setTimeout(() => {
-      setIndex(index + 1);
-    }, index === 0 ? 2000 : 120); // Hold 'Apna Coder' longer (2s), then very fast (120ms) through others
-
-    return () => clearTimeout(timeout);
-  }, [index, shouldRender, phase]);
+  }, [shouldRender]);
   
   if (!shouldRender) return null;
 
@@ -82,52 +63,8 @@ export const Preloader = () => {
 
   return (
     <AnimatePresence mode="wait">
-        {show && phase === 'intro' && (
-            <IntroAnimation key="intro" onComplete={() => setPhase('text')} />
-        )}
-
-        {show && phase === 'text' && (
-            <motion.div
-                key="text-loader"
-                variants={slideUp}
-                initial="initial"
-                exit="exit"
-                className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950"
-            >
-                {dimension.width > 0 && (
-                <>
-                    <motion.p 
-                        variants={opacity}
-                        initial="initial"
-                        animate="enter"
-                        className="flex text-5xl md:text-8xl font-black items-center z-10 font-sans tracking-tighter uppercase"
-                        style={{ 
-                            WebkitTextStroke: `1px ${currentLang.color}`,
-                            color: 'transparent',
-                            textShadow: `0 0 2px ${currentLang.color}`
-                        }}
-                    >
-                        <span 
-                            className="w-3 h-3 md:w-4 md:h-4 rounded-full mr-4 md:mr-6 inline-block"
-                            style={{
-                                backgroundColor: currentLang.color,
-                                boxShadow: `0 0 10px ${currentLang.color}`
-                            }}
-                        ></span>
-                        {currentLang.text}
-                    </motion.p>
-                    
-                    {/* SVG Curve for the curtain effect */}
-                    <svg className="absolute top-0 w-full h-[calc(100%+300px)] pointer-events-none fill-zinc-950">
-                        <motion.path 
-                            variants={curve} 
-                            initial="initial" 
-                            exit="exit" 
-                        />
-                    </svg>
-                </>
-                )}
-            </motion.div>
+        {show && (
+            <IntroAnimation key="intro" onComplete={() => setShow(false)} />
         )}
     </AnimatePresence>
   );

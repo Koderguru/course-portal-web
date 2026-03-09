@@ -36,7 +36,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen w-full bg-gray-50 dark:bg-black font-sans selection:bg-indigo-500 selection:text-white relative">
-      {/* <Preloader /> */}
+      <Preloader />
       <FloatingIcons />
       <SecretChat />
       

@@ -120,9 +120,6 @@ export function DeactivationCountdown() {
                   })}
                 </strong>.
               </p>
-              <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-5 italic">
-                ⚠️ We respect content creators and their rights. Please save any important data just in case.
-              </p>
 
               {/* Countdown boxes */}
               <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-5">
