@@ -110,16 +110,18 @@ export function DeactivationCountdown() {
 
             {/* Body */}
             <div className="bg-white dark:bg-slate-900 px-4 py-5 sm:px-6 sm:py-6">
-              <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed mb-5">
-                This site will be <strong className="text-red-600 dark:text-red-400">permanently deactivated</strong> on{" "}
+              <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed mb-3">
+                We may have to <strong className="text-red-600 dark:text-red-400">deactivate this site</strong> if we receive a copyright claim from <strong>Apna College</strong>. To avoid any issues, we plan to take it down by{" "}
                 <strong>
                   {DEACTIVATION_DATE.toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
                   })}
-                </strong>
-                . Please save any important data before the deadline.
+                </strong>.
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-5 italic">
+                ⚠️ This is not intentional — we are not doing this on purpose. We respect content creators and their rights. This step is only being taken as a precaution to stay on the safe side.
               </p>
 
               {/* Countdown boxes */}
