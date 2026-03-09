@@ -30,13 +30,8 @@ export function DeactivationCountdown() {
   useEffect(() => {
     setMounted(true);
 
-    // Show popup once per day (stored in localStorage)
-    const today = new Date().toDateString();
-    const lastShown = localStorage.getItem("deactivation_popup_shown");
-    if (lastShown !== today) {
-      setShowPopup(true);
-      localStorage.setItem("deactivation_popup_shown", today);
-    }
+    // Show popup every time site loads
+    setShowPopup(true);
 
     // Live countdown timer — updates every second
     const interval = setInterval(() => {
